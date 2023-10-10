@@ -1,0 +1,3 @@
+[submodule "third_party/cooper"]
+	path = third_party/cooper
+	url = git@github.com:linhaojun857/cooper.git
