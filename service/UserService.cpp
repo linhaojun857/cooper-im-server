@@ -5,6 +5,7 @@
 
 #include "define/IMDefine.hpp"
 #include "entity/Entity.hpp"
+#include "store/IMStore.hpp"
 
 UserService::UserService(std::shared_ptr<dbng<mysql>> sqlConn) : sqlConn_(std::move(sqlConn)) {
 }
@@ -41,6 +42,7 @@ void UserService::userLogin(const cooper::HttpRequest& request, cooper::HttpResp
         goto last;
     }
 last:
+    IMStore::addOnlineUser(users[0].id);
     json j;
     j["code"] = code;
     j["msg"] = msg;
@@ -73,6 +75,8 @@ void UserService::userRegister(const cooper::HttpRequest& request, cooper::HttpR
     user.username = username;
     user.nickname = "user_" + username;
     user.password = password;
+    user.avatar = DEFAULT_USER_AVATAR;
+    user.feeling = DEFAULT_USER_FEELING;
     ret = sqlConn_->insert(user);
     if (ret != 1) {
         code = HTTP_ERROR_CODE;

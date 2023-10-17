@@ -1,9 +1,11 @@
+#include <cooper/net/AppTcpServer.hpp>
 #include <cooper/net/HttpServer.hpp>
 #include <cooper/util/AsyncLogWriter.hpp>
 #include <dbng.hpp>
 #include <mysql.hpp>
 #include <regex>
 
+#include "define/IMDefine.hpp"
 #include "entity/Entity.hpp"
 #include "service/UserService.hpp"
 
@@ -23,16 +25,18 @@ int main() {
     Logger::setLogLevel(Logger::kTrace);
     Logger::setOutputFunction(std::bind(&AsyncLogWriter::write, &writer, std::placeholders::_1, std::placeholders::_2),
                               std::bind(&AsyncLogWriter::flushAll, &writer));
-    HttpServer httpServer(9999);
     std::shared_ptr<dbng<mysql>> sqlConn = std::make_shared<dbng<mysql>>();
-    if (!sqlConn->connect("172.18.48.1", "root", "20030802", "cooper_im")) {
+    if (!sqlConn->connect(MYSQL_SERVER_IP, MYSQL_SERVER_USERNAME, MYSQL_SERVER_PASSWORD, MYSQL_SERVER_DATABASE)) {
         LOG_ERROR << "connect mysql failed";
         return -1;
     }
-    if (!sqlConn->create_datatable<User>(ormpp_auto_key{"id"})) {
+    if (!sqlConn->create_datatable<User>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"})) {
         LOG_ERROR << "create table user failed";
         return -1;
     }
+    AppTcpServer appTcpServer(8888);
+    HttpServer httpServer(9999);
     UserService userService(sqlConn);
     ADD_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static");
     ADD_ENDPOINT("POST", "/user/login", userService, &UserService::userLogin);
