@@ -1,9 +1,11 @@
 #include "IMStore.hpp"
 
-std::unordered_set<int> IMStore::onlineUsers;
+#include <utility>
 
-void IMStore::addOnlineUser(int id) {
-    onlineUsers.insert(id);
+std::unordered_map<int, User> IMStore::onlineUsers;
+
+void IMStore::addOnlineUser(int id, User user) {
+    onlineUsers[id] = std::move(user);
 }
 
 void IMStore::removeOnlineUser(int id) {

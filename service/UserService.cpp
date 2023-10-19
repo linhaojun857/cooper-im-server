@@ -6,6 +6,7 @@
 #include "define/IMDefine.hpp"
 #include "entity/Entity.hpp"
 #include "store/IMStore.hpp"
+#include "util/JwtUtil.hpp"
 
 UserService::UserService(std::shared_ptr<dbng<mysql>> sqlConn) : sqlConn_(std::move(sqlConn)) {
 }
@@ -23,6 +24,9 @@ void UserService::userLogin(const cooper::HttpRequest& request, cooper::HttpResp
     // auto vfCode = params["vfCode"].get<std::string>();
     std::vector<User> users;
     std::regex regex(R"(^1(3\d|4[5-9]|5[0-35-9]|6[2567]|7[0-8]|8\d|9[0-35-9])\d{8}$)");
+    json j;
+    std::vector<User> friends;
+    std::string token;
     if (!std::regex_match(username, regex)) {
         code = HTTP_ERROR_CODE;
         msg = "请输入正确的手机号码";
@@ -36,14 +40,27 @@ void UserService::userLogin(const cooper::HttpRequest& request, cooper::HttpResp
         goto last;
     }
     assert(users.size() == 1);
-    if (users[0].password == password) {
-        code = HTTP_SUCCESS_CODE;
-        msg = "登录成功";
+    if (users[0].password != password) {
+        code = HTTP_ERROR_CODE;
+        msg = "密码错误";
         goto last;
     }
+    code = HTTP_SUCCESS_CODE;
+    msg = "登录成功";
+    j["token"] = JwtUtil::createToken(users[0].id);
+    j["user"] = users[0].toJson();
+    IMStore::addOnlineUser(users[0].id, users[0]);
+    friends = sqlConn_->query<User>(
+        "select user.* "
+        "from (select * from friend where a_id = " +
+            std::to_string(users[0].id) +
+            ") as t1 "
+            "left join user on t1.b_id = user.id;",
+        1);
+    for (auto& f : friends) {
+        j["friends"].push_back(f.toJson());
+    }
 last:
-    IMStore::addOnlineUser(users[0].id);
-    json j;
     j["code"] = code;
     j["msg"] = msg;
     response.body_ = j.dump();
@@ -76,6 +93,7 @@ void UserService::userRegister(const cooper::HttpRequest& request, cooper::HttpR
     user.nickname = "user_" + username;
     user.password = password;
     user.avatar = DEFAULT_USER_AVATAR;
+    user.status = DEFAULT_USER_STATUS;
     user.feeling = DEFAULT_USER_FEELING;
     ret = sqlConn_->insert(user);
     if (ret != 1) {
@@ -89,6 +107,55 @@ void UserService::userRegister(const cooper::HttpRequest& request, cooper::HttpR
     }
 last:
     json j;
+    j["code"] = code;
+    j["msg"] = msg;
+    response.body_ = j.dump();
+}
+
+void UserService::search(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    int code;
+    std::string msg;
+    auto params = json::parse(request.body_);
+    auto keyword = params["keyword"].get<std::string>();
+    std::string token;
+    int userId;
+    std::vector<User> users;
+    json j;
+    std::regex regex(R"(^1(3\d|4[5-9]|5[0-35-9]|6[2567]|7[0-8]|8\d|9[0-35-9])\d{8}$)");
+    if (!params.contains("token")) {
+        code = HTTP_ERROR_CODE;
+        msg = "缺少token";
+        goto last;
+    }
+    token = params["token"].get<std::string>();
+    userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        code = HTTP_ERROR_CODE;
+        msg = "token无效";
+        goto last;
+    }
+    if (std::regex_match(keyword, regex)) {
+        users = sqlConn_->query<User>("username=" + keyword);
+        if (!users.empty()) {
+            for (auto& item : users) {
+                if (item.id != userId) {
+                    j["fsrs"].push_back(item.toJson());
+                }
+            }
+        }
+    }
+    users.clear();
+    users = sqlConn_->query<User>("nickname like '%" + keyword + "%'");
+    if (!users.empty()) {
+        for (auto& item : users) {
+            if (item.id != userId) {
+                j["fsrs"].push_back(item.toJson());
+            }
+        }
+    }
+    code = HTTP_SUCCESS_CODE;
+    msg = "搜索成功";
+last:
     j["code"] = code;
     j["msg"] = msg;
     response.body_ = j.dump();

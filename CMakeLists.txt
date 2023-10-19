@@ -6,7 +6,9 @@ set(COOPER_TEST OFF)
 
 add_subdirectory(third_party/cooper)
 
-add_executable(cooper-im-server
+find_package(jwt-cpp CONFIG REQUIRED)
+
+add_library(cooper-im-server-lib
         main.cpp
         # entity
         entity/Entity.hpp
@@ -17,12 +19,20 @@ add_executable(cooper-im-server
         define/IMDefine.hpp
         # store
         store/IMStore.cpp
-        store/IMStore.hpp)
-add_executable(add-test-data
-        test/AddTestData.cpp)
+        store/IMStore.hpp
+        # util
+        util/JwtUtil.cpp
+        util/JwtUtil.hpp)
+target_link_libraries(cooper-im-server-lib PUBLIC cooper)
+target_link_libraries(cooper-im-server-lib PUBLIC jwt-cpp::jwt-cpp)
+target_include_directories(cooper-im-server-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(cooper-im-server cooper)
-target_link_libraries(add-test-data cooper)
+add_executable(cooper-im-server main.cpp)
+target_link_libraries(cooper-im-server PRIVATE cooper-im-server-lib)
 
-target_include_directories(cooper-im-server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(add-test-data PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+file(GLOB_RECURSE TEST_SOURCES "test/*.cpp")
+foreach (TEST_SOURCE ${TEST_SOURCES})
+    get_filename_component(TEST_NAME ${TEST_SOURCE} NAME_WE)
+    add_executable(${TEST_NAME} ${TEST_SOURCE})
+    target_link_libraries(${TEST_NAME} PRIVATE cooper-im-server-lib)
+endforeach ()

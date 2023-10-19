@@ -17,6 +17,8 @@ public:
 
     void userRegister(const HttpRequest& request, HttpResponse& response);
 
+    void search(const HttpRequest& request, HttpResponse& response);
+
 private:
     std::shared_ptr<dbng<mysql>> sqlConn_;
 };

@@ -103,7 +103,10 @@ int main() {
         LOG_ERROR << "create table user failed";
         return -1;
     }
-    addUserTestData(sqlConn);
-    addFriendTestData(sqlConn);
+    auto friends = sqlConn->query<User>(
+        "select user.*\n"
+        "from (select * from friend where a_id = 1) as t1\n"
+        "left join user on t1.b_id = user.id;");
+    std::cout << friends.size() << std::endl;
     return 0;
 }

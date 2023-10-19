@@ -35,13 +35,21 @@ int main() {
         LOG_ERROR << "create table user failed";
         return -1;
     }
-    AppTcpServer appTcpServer(8888);
-    HttpServer httpServer(9999);
     UserService userService(sqlConn);
-    ADD_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static");
-    ADD_ENDPOINT("POST", "/user/login", userService, &UserService::userLogin);
-    ADD_ENDPOINT("POST", "/user/register", userService, &UserService::userRegister);
-    ADD_ENDPOINT("POST", "/user/getVFCode", userService, &UserService::getVfCode);
-    httpServer.start();
+    std::thread appTcpServerThread([&]() {
+        AppTcpServer appTcpServer(8888, false);
+        appTcpServer.start();
+    });
+    std::thread httpServerThread([&]() {
+        HttpServer httpServer(9999);
+        ADD_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static");
+        ADD_ENDPOINT("POST", "/user/login", userService, &UserService::userLogin);
+        ADD_ENDPOINT("POST", "/user/register", userService, &UserService::userRegister);
+        ADD_ENDPOINT("POST", "/user/getVFCode", userService, &UserService::getVfCode);
+        ADD_ENDPOINT("POST", "/user/search", userService, &UserService::search);
+        httpServer.start();
+    });
+    appTcpServerThread.join();
+    httpServerThread.join();
     return 0;
 }

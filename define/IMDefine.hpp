@@ -12,5 +12,6 @@
 
 #define DEFAULT_USER_AVATAR ("https://static.linhaojun.top/aurora/config/0af1901da1e64dfb99bb61db21e716c4.jpeg")
 #define DEFAULT_USER_FEELING ("这个人很懒，什么也没留下")
+#define DEFAULT_USER_STATUS ("在线")
 
 #endif
