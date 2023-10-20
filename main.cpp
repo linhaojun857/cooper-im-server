@@ -5,9 +5,9 @@
 #include <mysql.hpp>
 #include <regex>
 
+#include "controller//UserController.hpp"
 #include "define/IMDefine.hpp"
 #include "entity/Entity.hpp"
-#include "service/UserService.hpp"
 
 #define ADD_MOUNTPOINT(mountPoint, dir) \
     Headers headers;                    \
@@ -23,7 +23,7 @@ using namespace std::placeholders;
 int main() {
     AsyncLogWriter writer;
     Logger::setLogLevel(Logger::kTrace);
-    Logger::setOutputFunction(std::bind(&AsyncLogWriter::write, &writer, std::placeholders::_1, std::placeholders::_2),
+    Logger::setOutputFunction(std::bind(&AsyncLogWriter::write, &writer, _1, _2),
                               std::bind(&AsyncLogWriter::flushAll, &writer));
     std::shared_ptr<dbng<mysql>> sqlConn = std::make_shared<dbng<mysql>>();
     if (!sqlConn->connect(MYSQL_SERVER_IP, MYSQL_SERVER_USERNAME, MYSQL_SERVER_PASSWORD, MYSQL_SERVER_DATABASE)) {
@@ -37,7 +37,7 @@ int main() {
         LOG_ERROR << "create table user failed";
         return -1;
     }
-    UserService userService(sqlConn);
+    UserController userController(sqlConn);
     std::thread appTcpServerThread([&]() {
         AppTcpServer appTcpServer(8888, false);
         appTcpServer.start();
@@ -45,11 +45,11 @@ int main() {
     std::thread httpServerThread([&]() {
         HttpServer httpServer(9999);
         ADD_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static");
-        ADD_ENDPOINT("POST", "/user/login", userService, &UserService::userLogin);
-        ADD_ENDPOINT("POST", "/user/register", userService, &UserService::userRegister);
-        ADD_ENDPOINT("POST", "/user/getVFCode", userService, &UserService::getVfCode);
-        ADD_ENDPOINT("POST", "/user/search", userService, &UserService::search);
-        ADD_ENDPOINT("POST", "/user/addFriend", userService, &UserService::addFriend);
+        ADD_ENDPOINT("POST", "/user/login", userController, &UserController::userLogin);
+        ADD_ENDPOINT("POST", "/user/register", userController, &UserController::userRegister);
+        ADD_ENDPOINT("POST", "/user/getVFCode", userController, &UserController::getVfCode);
+        ADD_ENDPOINT("POST", "/user/search", userController, &UserController::search);
+        ADD_ENDPOINT("POST", "/user/addFriend", userController, &UserController::addFriend);
         httpServer.start();
     });
     appTcpServerThread.join();

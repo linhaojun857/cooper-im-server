@@ -12,9 +12,9 @@ add_library(cooper-im-server-lib
         main.cpp
         # entity
         entity/Entity.hpp
-        # service
-        service/UserService.cpp
-        service/UserService.hpp
+        # controller
+        controller/UserController.cpp
+        controller/UserController.hpp
         # define
         define/IMDefine.hpp
         # store

@@ -1,4 +1,4 @@
-#include "UserService.hpp"
+#include "UserController.hpp"
 
 #include <cooper/util/Logger.hpp>
 #include <regex>
@@ -9,13 +9,13 @@
 #include "store/IMStore.hpp"
 #include "util/JwtUtil.hpp"
 
-UserService::UserService(std::shared_ptr<dbng<mysql>> sqlConn) : sqlConn_(std::move(sqlConn)) {
+UserController::UserController(std::shared_ptr<dbng<mysql>> sqlConn) : sqlConn_(std::move(sqlConn)) {
 }
 
-void UserService::getVfCode(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void UserController::getVfCode(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
 }
 
-void UserService::userLogin(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void UserController::userLogin(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
     json j;
     auto params = json::parse(request.body_);
     auto username = params["username"].get<std::string>();
@@ -48,7 +48,7 @@ void UserService::userLogin(const cooper::HttpRequest& request, cooper::HttpResp
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "登录成功")
 }
 
-void UserService::userRegister(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void UserController::userRegister(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
     json j;
     auto params = json::parse(request.body_);
     auto username = params["username"].get<std::string>();
@@ -70,7 +70,7 @@ void UserService::userRegister(const cooper::HttpRequest& request, cooper::HttpR
     }
 }
 
-void UserService::search(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void UserController::search(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
     json j;
     auto params = json::parse(request.body_);
     auto keyword = params["keyword"].get<std::string>();
@@ -106,7 +106,7 @@ void UserService::search(const cooper::HttpRequest& request, cooper::HttpRespons
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "搜索成功");
 }
 
-void UserService::addFriend(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
     auto params = json::parse(request.body_);
     json j;
     if (!params.contains("peerId")) {

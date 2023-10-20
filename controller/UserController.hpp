@@ -7,9 +7,9 @@
 using namespace cooper;
 using namespace ormpp;
 
-class UserService {
+class UserController {
 public:
-    explicit UserService(std::shared_ptr<dbng<mysql>> mysql);
+    explicit UserController(std::shared_ptr<dbng<mysql>> mysql);
 
     void getVfCode(const HttpRequest& request, HttpResponse& response);
 
