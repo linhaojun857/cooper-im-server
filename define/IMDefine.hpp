@@ -14,4 +14,16 @@
 #define DEFAULT_USER_FEELING ("这个人很懒，什么也没留下")
 #define DEFAULT_USER_STATUS ("在线")
 
+#define RETURN_RESPONSE(code_in, msg_in) \
+    {                                    \
+        int code;                        \
+        std::string msg;                 \
+        code = code_in;                  \
+        msg = msg_in;                    \
+        j["code"] = code;                \
+        j["msg"] = msg;                  \
+        response.body_ = j.dump();       \
+        return;                          \
+    }
+
 #endif

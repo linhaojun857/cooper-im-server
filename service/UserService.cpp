@@ -13,45 +13,29 @@ UserService::UserService(std::shared_ptr<dbng<mysql>> sqlConn) : sqlConn_(std::m
 }
 
 void UserService::getVfCode(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
-    // TODO: 对接腾讯云短信服务
 }
 
 void UserService::userLogin(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
-    int code = HTTP_SUCCESS_CODE;
-    std::string msg;
+    json j;
     auto params = json::parse(request.body_);
     auto username = params["username"].get<std::string>();
     auto password = params["password"].get<std::string>();
-    // auto vfCode = params["vfCode"].get<std::string>();
-    std::vector<User> users;
     std::regex regex(R"(^1(3\d|4[5-9]|5[0-35-9]|6[2567]|7[0-8]|8\d|9[0-35-9])\d{8}$)");
-    json j;
-    std::vector<User> friends;
-    std::string token;
     if (!std::regex_match(username, regex)) {
-        code = HTTP_ERROR_CODE;
-        msg = "请输入正确的手机号码";
-        goto last;
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "请输入正确的手机号码")
     }
-    // TODO: 校验验证码
-    users = sqlConn_->query<User>("username=" + username);
+    std::vector<User> users = sqlConn_->query<User>("username=" + username);
     if (users.empty()) {
-        code = HTTP_ERROR_CODE;
-        msg = "请先注册";
-        goto last;
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "请先注册")
     }
     assert(users.size() == 1);
     if (users[0].password != password) {
-        code = HTTP_ERROR_CODE;
-        msg = "密码错误";
-        goto last;
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "密码错误")
     }
-    code = HTTP_SUCCESS_CODE;
-    msg = "登录成功";
     j["token"] = JwtUtil::createToken(users[0].id);
     j["user"] = users[0].toJson();
     IMStore::getInstance()->addOnlineUser(users[0].id, users[0]);
-    friends = sqlConn_->query<User>(
+    std::vector<User> friends = sqlConn_->query<User>(
         "select user.* "
         "from (select * from friend where a_id = " +
             std::to_string(users[0].id) +
@@ -61,80 +45,45 @@ void UserService::userLogin(const cooper::HttpRequest& request, cooper::HttpResp
     for (auto& f : friends) {
         j["friends"].push_back(f.toJson());
     }
-last:
-    j["code"] = code;
-    j["msg"] = msg;
-    response.body_ = j.dump();
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "登录成功")
 }
 
 void UserService::userRegister(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
-    int code;
-    std::string msg;
+    json j;
     auto params = json::parse(request.body_);
     auto username = params["username"].get<std::string>();
     auto password = params["password"].get<std::string>();
-    // auto vfCode = params["vfCode"].get<std::string>();
-    std::vector<User> users;
-    User user;
-    int ret;
     std::regex regex(R"(^1(3\d|4[5-9]|5[0-35-9]|6[2567]|7[0-8]|8\d|9[0-35-9])\d{8}$)");
     if (!std::regex_match(username, regex)) {
-        code = HTTP_ERROR_CODE;
-        msg = "请输入正确的手机号码";
-        goto last;
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "请输入正确的手机号码");
     }
-    // TODO: 校验验证码
-    users = sqlConn_->query<User>("username=" + username);
+    std::vector<User> users = sqlConn_->query<User>("username=" + username);
     if (!users.empty()) {
-        code = HTTP_ERROR_CODE;
-        msg = "该手机号码已注册";
-        goto last;
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "该手机号码已注册");
     }
-    user.username = username;
-    user.nickname = "user_" + username;
-    user.password = password;
-    user.avatar = DEFAULT_USER_AVATAR;
-    user.status = DEFAULT_USER_STATUS;
-    user.feeling = DEFAULT_USER_FEELING;
-    ret = sqlConn_->insert(user);
-    if (ret != 1) {
-        code = HTTP_ERROR_CODE;
-        msg = "注册失败";
-        goto last;
+    User user(0, username, "user_" + username, password, DEFAULT_USER_AVATAR, DEFAULT_USER_STATUS,
+              DEFAULT_USER_FEELING);
+    if (sqlConn_->insert(user) != 1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "注册失败")
     } else {
-        code = HTTP_SUCCESS_CODE;
-        msg = "注册成功";
-        goto last;
+        RETURN_RESPONSE(HTTP_SUCCESS_CODE, "注册成功")
     }
-last:
-    json j;
-    j["code"] = code;
-    j["msg"] = msg;
-    response.body_ = j.dump();
 }
 
 void UserService::search(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
-    int code;
-    std::string msg;
+    json j;
     auto params = json::parse(request.body_);
     auto keyword = params["keyword"].get<std::string>();
-    std::string token;
-    int userId;
-    std::vector<User> users;
-    json j;
     std::regex regex(R"(^1(3\d|4[5-9]|5[0-35-9]|6[2567]|7[0-8]|8\d|9[0-35-9])\d{8}$)");
     if (!params.contains("token")) {
-        code = HTTP_ERROR_CODE;
-        msg = "缺少token";
-        goto last;
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少token")
     }
-    token = params["token"].get<std::string>();
-    userId = JwtUtil::parseToken(token);
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
     if (userId == -1) {
-        code = HTTP_ERROR_CODE;
-        msg = "无效token";
-        goto last;
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
+    std::vector<User> users;
     if (std::regex_match(keyword, regex)) {
         users = sqlConn_->query<User>("username=" + keyword);
         if (!users.empty()) {
@@ -154,102 +103,58 @@ void UserService::search(const cooper::HttpRequest& request, cooper::HttpRespons
             }
         }
     }
-    code = HTTP_SUCCESS_CODE;
-    msg = "搜索成功";
-last:
-    j["code"] = code;
-    j["msg"] = msg;
-    response.body_ = j.dump();
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "搜索成功");
 }
 
 void UserService::addFriend(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
-    int code;
-    std::string msg;
     auto params = json::parse(request.body_);
     json j;
-    std::vector<Friend> ret1;
-    std::vector<FriendApply> ret2;
-    int userId;
-    int peerId;
-    std::string reason;
-    std::string token;
-    FriendApply fa{};
-    Notify n{};
-    User user;
-    std::vector<std::tuple<int>> id;
     if (!params.contains("peerId")) {
-        code = HTTP_ERROR_CODE;
-        msg = "缺少peerId";
-        goto last;
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少peerId")
     }
-    peerId = params["peerId"].get<int>();
+    int peerId = params["peerId"].get<int>();
     if (!params.contains("reason")) {
-        code = HTTP_ERROR_CODE;
-        msg = "缺少reason";
-        goto last;
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少reason")
     }
-    reason = params["reason"].get<std::string>();
+    std::string reason = params["reason"].get<std::string>();
     if (!params.contains("token")) {
-        code = HTTP_ERROR_CODE;
-        msg = "缺少token";
-        goto last;
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少token")
     }
-    token = params["token"].get<std::string>();
-    userId = JwtUtil::parseToken(token);
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
     if (userId == -1) {
-        code = HTTP_ERROR_CODE;
-        msg = "无效token";
-        goto last;
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
     sqlConn_->begin();
     try {
-        ret1 = sqlConn_->query<Friend>("a_id = " + std::to_string(userId) + " and b_id = " + std::to_string(peerId));
+        auto ret1 =
+            sqlConn_->query<Friend>("a_id = " + std::to_string(userId) + " and b_id = " + std::to_string(peerId));
         if (!ret1.empty()) {
-            code = HTTP_ERROR_CODE;
-            msg = "请勿重复添加";
-            goto last;
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "请勿重复添加")
         }
-        ret2 = sqlConn_->query<FriendApply>("from_id = " + std::to_string(userId) +
-                                            " and to_id = " + std::to_string(peerId) + " and agree = 0");
+        auto ret2 = sqlConn_->query<FriendApply>("from_id = " + std::to_string(userId) +
+                                                 " and to_id = " + std::to_string(peerId) + " and agree = 0");
         if (!ret2.empty()) {
-            code = HTTP_ERROR_CODE;
-            msg = "请勿重复申请";
-            goto last;
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "请勿重复申请")
         }
+        User user;
         if (IMStore::getInstance()->isOnlineUser(userId)) {
             user = IMStore::getInstance()->getOnlineUser(userId);
         } else {
-            code = HTTP_ERROR_CODE;
-            msg = "用户不在线";
-            goto last;
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "用户不在线")
         }
-        fa.from_id = userId;
-        fa.to_id = peerId;
-        fa.avatar = user.avatar;
-        fa.nickname = user.nickname;
-        fa.reason = reason;
-        fa.agree = 0;
+        FriendApply fa(0, userId, peerId, user.avatar, user.nickname, reason, 0);
         sqlConn_->insert(fa);
-        id = sqlConn_->query<std::tuple<int>>("select LAST_INSERT_ID()");
-        n.type = 0;
-        n.to_id = userId;
-        n.fa_id = std::get<0>(id[0]);
-        n.is_complete = 0;
-        sqlConn_->insert(n);
-        n.to_id = peerId;
-        sqlConn_->insert(n);
-        code = HTTP_SUCCESS_CODE;
-        msg = "成功发送好友申请";
+        auto id = sqlConn_->query<std::tuple<int>>("select LAST_INSERT_ID()");
+        Notify notify(0, 0, userId, std::get<0>(id[0]), 0);
+        sqlConn_->insert(notify);
+        notify.to_id = peerId;
+        sqlConn_->insert(notify);
     } catch (std::exception& e) {
         sqlConn_->rollback();
         LOG_ERROR << e.what();
-        code = HTTP_ERROR_CODE;
-        msg = "添加好友失败";
-        goto last;
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "添加好友失败")
     }
     sqlConn_->commit();
-last:
-    j["code"] = code;
-    j["msg"] = msg;
-    response.body_ = j.dump();
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "成功发送好友申请")
 }
