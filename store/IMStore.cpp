@@ -2,10 +2,19 @@
 
 #include <utility>
 
-std::unordered_map<int, User> IMStore::onlineUsers;
+IMStore* IMStore::getInstance() {
+    static IMStore store;
+    return &store;
+}
 
-void IMStore::addOnlineUser(int id, User user) {
-    onlineUsers[id] = std::move(user);
+IMStore::IMStore() = default;
+
+void IMStore::addOnlineUser(int id, const User& user) {
+    onlineUsers[id] = user;
+}
+
+User IMStore::getOnlineUser(int id) {
+    return onlineUsers[id];
 }
 
 void IMStore::removeOnlineUser(int id) {

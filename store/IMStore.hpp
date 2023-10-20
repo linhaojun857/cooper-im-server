@@ -7,13 +7,19 @@
 
 class IMStore {
 public:
-    static std::unordered_map<int, User> onlineUsers;
+    static IMStore* getInstance();
 
-    static void addOnlineUser(int id, User user);
+    IMStore();
 
-    static void removeOnlineUser(int id);
+    std::unordered_map<int, User> onlineUsers;
 
-    static bool isOnlineUser(int id);
+    void addOnlineUser(int id, const User& user);
+
+    User getOnlineUser(int id);
+
+    void removeOnlineUser(int id);
+
+    bool isOnlineUser(int id);
 };
 
 #endif

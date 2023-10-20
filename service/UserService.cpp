@@ -1,5 +1,6 @@
 #include "UserService.hpp"
 
+#include <cooper/util/Logger.hpp>
 #include <regex>
 #include <utility>
 
@@ -49,7 +50,7 @@ void UserService::userLogin(const cooper::HttpRequest& request, cooper::HttpResp
     msg = "登录成功";
     j["token"] = JwtUtil::createToken(users[0].id);
     j["user"] = users[0].toJson();
-    IMStore::addOnlineUser(users[0].id, users[0]);
+    IMStore::getInstance()->addOnlineUser(users[0].id, users[0]);
     friends = sqlConn_->query<User>(
         "select user.* "
         "from (select * from friend where a_id = " +
@@ -131,7 +132,7 @@ void UserService::search(const cooper::HttpRequest& request, cooper::HttpRespons
     userId = JwtUtil::parseToken(token);
     if (userId == -1) {
         code = HTTP_ERROR_CODE;
-        msg = "token无效";
+        msg = "无效token";
         goto last;
     }
     if (std::regex_match(keyword, regex)) {
@@ -155,6 +156,98 @@ void UserService::search(const cooper::HttpRequest& request, cooper::HttpRespons
     }
     code = HTTP_SUCCESS_CODE;
     msg = "搜索成功";
+last:
+    j["code"] = code;
+    j["msg"] = msg;
+    response.body_ = j.dump();
+}
+
+void UserService::addFriend(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    int code;
+    std::string msg;
+    auto params = json::parse(request.body_);
+    json j;
+    std::vector<Friend> ret1;
+    std::vector<FriendApply> ret2;
+    int userId;
+    int peerId;
+    std::string reason;
+    std::string token;
+    FriendApply fa{};
+    Notify n{};
+    User user;
+    std::vector<std::tuple<int>> id;
+    if (!params.contains("peerId")) {
+        code = HTTP_ERROR_CODE;
+        msg = "缺少peerId";
+        goto last;
+    }
+    peerId = params["peerId"].get<int>();
+    if (!params.contains("reason")) {
+        code = HTTP_ERROR_CODE;
+        msg = "缺少reason";
+        goto last;
+    }
+    reason = params["reason"].get<std::string>();
+    if (!params.contains("token")) {
+        code = HTTP_ERROR_CODE;
+        msg = "缺少token";
+        goto last;
+    }
+    token = params["token"].get<std::string>();
+    userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        code = HTTP_ERROR_CODE;
+        msg = "无效token";
+        goto last;
+    }
+    sqlConn_->begin();
+    try {
+        ret1 = sqlConn_->query<Friend>("a_id = " + std::to_string(userId) + " and b_id = " + std::to_string(peerId));
+        if (!ret1.empty()) {
+            code = HTTP_ERROR_CODE;
+            msg = "请勿重复添加";
+            goto last;
+        }
+        ret2 = sqlConn_->query<FriendApply>("from_id = " + std::to_string(userId) +
+                                            " and to_id = " + std::to_string(peerId) + " and agree = 0");
+        if (!ret2.empty()) {
+            code = HTTP_ERROR_CODE;
+            msg = "请勿重复申请";
+            goto last;
+        }
+        if (IMStore::getInstance()->isOnlineUser(userId)) {
+            user = IMStore::getInstance()->getOnlineUser(userId);
+        } else {
+            code = HTTP_ERROR_CODE;
+            msg = "用户不在线";
+            goto last;
+        }
+        fa.from_id = userId;
+        fa.to_id = peerId;
+        fa.avatar = user.avatar;
+        fa.nickname = user.nickname;
+        fa.reason = reason;
+        fa.agree = 0;
+        sqlConn_->insert(fa);
+        id = sqlConn_->query<std::tuple<int>>("select LAST_INSERT_ID()");
+        n.type = 0;
+        n.to_id = userId;
+        n.fa_id = std::get<0>(id[0]);
+        n.is_complete = 0;
+        sqlConn_->insert(n);
+        n.to_id = peerId;
+        sqlConn_->insert(n);
+        code = HTTP_SUCCESS_CODE;
+        msg = "成功发送好友申请";
+    } catch (std::exception& e) {
+        sqlConn_->rollback();
+        LOG_ERROR << e.what();
+        code = HTTP_ERROR_CODE;
+        msg = "添加好友失败";
+        goto last;
+    }
+    sqlConn_->commit();
 last:
     j["code"] = code;
     j["msg"] = msg;

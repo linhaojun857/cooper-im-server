@@ -31,7 +31,9 @@ int main() {
         return -1;
     }
     if (!sqlConn->create_datatable<User>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"})) {
+        !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<Notify>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"})) {
         LOG_ERROR << "create table user failed";
         return -1;
     }
@@ -47,6 +49,7 @@ int main() {
         ADD_ENDPOINT("POST", "/user/register", userService, &UserService::userRegister);
         ADD_ENDPOINT("POST", "/user/getVFCode", userService, &UserService::getVfCode);
         ADD_ENDPOINT("POST", "/user/search", userService, &UserService::search);
+        ADD_ENDPOINT("POST", "/user/addFriend", userService, &UserService::addFriend);
         httpServer.start();
     });
     appTcpServerThread.join();

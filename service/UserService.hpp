@@ -19,6 +19,8 @@ public:
 
     void search(const HttpRequest& request, HttpResponse& response);
 
+    void addFriend(const HttpRequest& request, HttpResponse& response);
+
 private:
     std::shared_ptr<dbng<mysql>> sqlConn_;
 };

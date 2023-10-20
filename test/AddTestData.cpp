@@ -99,14 +99,14 @@ int main() {
         return -1;
     }
     if (!sqlConn->create_datatable<User>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"})) {
+        !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<Notify>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"})) {
         LOG_ERROR << "create table user failed";
         return -1;
     }
-    auto friends = sqlConn->query<User>(
-        "select user.*\n"
-        "from (select * from friend where a_id = 1) as t1\n"
-        "left join user on t1.b_id = user.id;");
-    std::cout << friends.size() << std::endl;
+    auto ret = sqlConn->query<FriendApply>("from_id = " + std::to_string(1) + " and to_id = " + std::to_string(2) +
+                                           " and agree = 0");
+    std::cout << ret.size() << std::endl;
     return 0;
 }
