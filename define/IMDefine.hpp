@@ -14,16 +14,23 @@
 #define DEFAULT_USER_FEELING ("这个人很懒，什么也没留下")
 #define DEFAULT_USER_STATUS ("在线")
 
-#define RETURN_RESPONSE(code_in, msg_in) \
-    {                                    \
-        int code;                        \
-        std::string msg;                 \
-        code = code_in;                  \
-        msg = msg_in;                    \
-        j["code"] = code;                \
-        j["msg"] = msg;                  \
-        response.body_ = j.dump();       \
-        return;                          \
-    }
+#define RETURN_RESPONSE(code, msg) \
+    j["code"] = code;              \
+    j["msg"] = msg;                \
+    response.body_ = j.dump();     \
+    return;
+
+#define RETURN_ERROR(msg_in)                 \
+    json j_err;                              \
+    j_err["type"] = PROTOCOL_TYPE_ERROR_MSG; \
+    j_err["msg"] = "缺少token";              \
+    connPtr->sendJson(j_err);                \
+    return;
+
+#define PROTOCOL_TYPE_BASE (1000)
+#define PROTOCOL_TYPE_AUTH_MSG (PROTOCOL_TYPE_BASE + 1)
+#define PROTOCOL_TYPE_ERROR_MSG (PROTOCOL_TYPE_BASE + 2)
+#define PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_I (PROTOCOL_TYPE_BASE + 3)
+#define PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_P (PROTOCOL_TYPE_BASE + 4)
 
 #endif

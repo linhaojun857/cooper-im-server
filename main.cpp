@@ -9,12 +9,15 @@
 #include "define/IMDefine.hpp"
 #include "entity/Entity.hpp"
 
-#define ADD_MOUNTPOINT(mountPoint, dir) \
-    Headers headers;                    \
-    httpServer.addMountPoint(mountPoint, dir, headers)
+#define ADD_HTTP_MOUNTPOINT(mountPoint, dir) \
+    Headers headers;                         \
+    httpServer.addMountPoint(mountPoint, dir, headers);
 
-#define ADD_ENDPOINT(method, path, service, handler) \
-    httpServer.addEndpoint(method, path, std::bind(handler, &service, _1, _2))
+#define ADD_HTTP_ENDPOINT(method, path, service, handler) \
+    httpServer.addEndpoint(method, path, std::bind(handler, &service, _1, _2));
+
+#define ADD_TCP_ENDPOINT(type, service, handler) \
+    appTcpServer.registerProtocolHandler(type, std::bind(handler, &service, _1, _2));
 
 using namespace cooper;
 using namespace ormpp;
@@ -40,16 +43,17 @@ int main() {
     UserController userController(sqlConn);
     std::thread appTcpServerThread([&]() {
         AppTcpServer appTcpServer(8888, false);
+        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_AUTH_MSG, userController, &UserController::handleAuthMsg)
         appTcpServer.start();
     });
     std::thread httpServerThread([&]() {
         HttpServer httpServer(9999);
-        ADD_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static");
-        ADD_ENDPOINT("POST", "/user/login", userController, &UserController::userLogin);
-        ADD_ENDPOINT("POST", "/user/register", userController, &UserController::userRegister);
-        ADD_ENDPOINT("POST", "/user/getVFCode", userController, &UserController::getVfCode);
-        ADD_ENDPOINT("POST", "/user/search", userController, &UserController::search);
-        ADD_ENDPOINT("POST", "/user/addFriend", userController, &UserController::addFriend);
+        ADD_HTTP_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static")
+        ADD_HTTP_ENDPOINT("POST", "/user/login", userController, &UserController::userLogin)
+        ADD_HTTP_ENDPOINT("POST", "/user/register", userController, &UserController::userRegister)
+        ADD_HTTP_ENDPOINT("POST", "/user/getVFCode", userController, &UserController::getVfCode)
+        ADD_HTTP_ENDPOINT("POST", "/user/search", userController, &UserController::search)
+        ADD_HTTP_ENDPOINT("POST", "/user/addFriend", userController, &UserController::addFriend)
         httpServer.start();
     });
     appTcpServerThread.join();

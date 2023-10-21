@@ -62,14 +62,14 @@ struct Friend {
 REFLECTION(Friend, id, a_id, b_id, group_type)
 
 struct FriendApply {
-    int id;
-    int from_id;
-    int to_id;
+    int id{};
+    int from_id{};
+    int to_id{};
     std::string avatar;
     std::string nickname;
     std::string reason;
     // 0: 待处理 1: 通过申请 2: 拒绝申请
-    int agree;
+    int agree{};
 
     FriendApply() = default;
 
@@ -83,6 +83,18 @@ struct FriendApply {
         this->reason = reason;
         this->agree = agree;
     }
+
+    json toJson() {
+        json j;
+        j["id"] = id;
+        j["from_id"] = from_id;
+        j["to_id"] = to_id;
+        j["avatar"] = avatar;
+        j["nickname"] = nickname;
+        j["reason"] = reason;
+        j["agree"] = agree;
+        return j;
+    }
 };
 REFLECTION(FriendApply, id, from_id, to_id, avatar, nickname, agree)
 
@@ -91,7 +103,7 @@ struct Notify {
     // 推送给谁
     int to_id;
     // 0: 好友申请...
-    int type;
+    int notify_type;
     int fa_id;
     int is_complete;
 
@@ -100,11 +112,21 @@ struct Notify {
     Notify(int id, int to_id, int type, int fa_id, int is_complete) {
         this->id = id;
         this->to_id = to_id;
-        this->type = type;
+        this->notify_type = type;
         this->fa_id = fa_id;
         this->is_complete = is_complete;
     }
+
+    json toJson() {
+        json j;
+        j["id"] = id;
+        j["to_id"] = to_id;
+        j["notify_type"] = notify_type;
+        j["fa_id"] = fa_id;
+        j["is_complete"] = is_complete;
+        return j;
+    }
 };
-REFLECTION(Notify, id, to_id, type, fa_id, is_complete)
+REFLECTION(Notify, id, to_id, notify_type, fa_id, is_complete)
 
 #endif

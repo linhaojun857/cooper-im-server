@@ -10,17 +10,33 @@ IMStore* IMStore::getInstance() {
 IMStore::IMStore() = default;
 
 void IMStore::addOnlineUser(int id, const User& user) {
-    onlineUsers[id] = user;
+    onlineUsers_[id] = user;
 }
 
 User IMStore::getOnlineUser(int id) {
-    return onlineUsers[id];
+    return onlineUsers_[id];
 }
 
 void IMStore::removeOnlineUser(int id) {
-    onlineUsers.erase(id);
+    onlineUsers_.erase(id);
 }
 
 bool IMStore::isOnlineUser(int id) {
-    return onlineUsers.find(id) != onlineUsers.end();
+    return onlineUsers_.find(id) != onlineUsers_.end();
+}
+
+void IMStore::addTcpConnection(int id, const cooper::TcpConnectionPtr& connPtr) {
+    tcpConnections_[id] = connPtr;
+}
+
+TcpConnectionPtr IMStore::getTcpConnection(int id) {
+    return tcpConnections_[id];
+}
+
+void IMStore::removeTcpConnection(int id) {
+    tcpConnections_.erase(id);
+}
+
+bool IMStore::haveTcpConnection(int id) {
+    return tcpConnections_.find(id) != tcpConnections_.end();
 }

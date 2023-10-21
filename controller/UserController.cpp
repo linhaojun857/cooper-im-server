@@ -16,9 +16,16 @@ void UserController::getVfCode(const cooper::HttpRequest& request, cooper::HttpR
 }
 
 void UserController::userLogin(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "UserController::userLogin";
     json j;
     auto params = json::parse(request.body_);
+    if (!params.contains("username")) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少username")
+    }
     auto username = params["username"].get<std::string>();
+    if (!params.contains("password")) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少password")
+    }
     auto password = params["password"].get<std::string>();
     std::regex regex(R"(^1(3\d|4[5-9]|5[0-35-9]|6[2567]|7[0-8]|8\d|9[0-35-9])\d{8}$)");
     if (!std::regex_match(username, regex)) {
@@ -49,17 +56,24 @@ void UserController::userLogin(const cooper::HttpRequest& request, cooper::HttpR
 }
 
 void UserController::userRegister(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "UserController::userRegister";
     json j;
     auto params = json::parse(request.body_);
+    if (!params.contains("username")) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少username")
+    }
     auto username = params["username"].get<std::string>();
+    if (!params.contains("password")) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少password")
+    }
     auto password = params["password"].get<std::string>();
     std::regex regex(R"(^1(3\d|4[5-9]|5[0-35-9]|6[2567]|7[0-8]|8\d|9[0-35-9])\d{8}$)");
     if (!std::regex_match(username, regex)) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "请输入正确的手机号码");
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "请输入正确的手机号码")
     }
     std::vector<User> users = sqlConn_->query<User>("username=" + username);
     if (!users.empty()) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "该手机号码已注册");
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "该手机号码已注册")
     }
     User user(0, username, "user_" + username, password, DEFAULT_USER_AVATAR, DEFAULT_USER_STATUS,
               DEFAULT_USER_FEELING);
@@ -71,10 +85,13 @@ void UserController::userRegister(const cooper::HttpRequest& request, cooper::Ht
 }
 
 void UserController::search(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "UserController::search";
     json j;
     auto params = json::parse(request.body_);
+    if (!params.contains("keyword")) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少keyword")
+    }
     auto keyword = params["keyword"].get<std::string>();
-    std::regex regex(R"(^1(3\d|4[5-9]|5[0-35-9]|6[2567]|7[0-8]|8\d|9[0-35-9])\d{8}$)");
     if (!params.contains("token")) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少token")
     }
@@ -84,6 +101,7 @@ void UserController::search(const cooper::HttpRequest& request, cooper::HttpResp
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
     std::vector<User> users;
+    std::regex regex(R"(^1(3\d|4[5-9]|5[0-35-9]|6[2567]|7[0-8]|8\d|9[0-35-9])\d{8}$)");
     if (std::regex_match(keyword, regex)) {
         users = sqlConn_->query<User>("username=" + keyword);
         if (!users.empty()) {
@@ -103,10 +121,11 @@ void UserController::search(const cooper::HttpRequest& request, cooper::HttpResp
             }
         }
     }
-    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "搜索成功");
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "搜索成功")
 }
 
 void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "UserController::addFriend";
     auto params = json::parse(request.body_);
     json j;
     if (!params.contains("peerId")) {
@@ -141,14 +160,29 @@ void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpR
         if (IMStore::getInstance()->isOnlineUser(userId)) {
             user = IMStore::getInstance()->getOnlineUser(userId);
         } else {
-            RETURN_RESPONSE(HTTP_ERROR_CODE, "用户不在线")
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "用户未登录")
         }
         FriendApply fa(0, userId, peerId, user.avatar, user.nickname, reason, 0);
         sqlConn_->insert(fa);
         auto id = sqlConn_->query<std::tuple<int>>("select LAST_INSERT_ID()");
-        Notify notify(0, 0, userId, std::get<0>(id[0]), 0);
+        Notify notify(0, userId, 0, std::get<0>(id[0]), 1);
+        if (!IMStore::getInstance()->haveTcpConnection(userId)) {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "用户未登录")
+        }
+        auto userConnPtr = IMStore::getInstance()->getTcpConnection(userId);
+        json toUserJson = fa.toJson();
+        toUserJson["type"] = PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_I;
+        userConnPtr->sendJson(toUserJson);
         sqlConn_->insert(notify);
         notify.to_id = peerId;
+        if (IMStore::getInstance()->haveTcpConnection(peerId)) {
+            auto peerConnPtr = IMStore::getInstance()->getTcpConnection(peerId);
+            json toPeerJson = fa.toJson();
+            toPeerJson["type"] = PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_P;
+            peerConnPtr->sendJson(toPeerJson);
+        } else {
+            notify.is_complete = 0;
+        }
         sqlConn_->insert(notify);
     } catch (std::exception& e) {
         sqlConn_->rollback();
@@ -157,4 +191,18 @@ void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpR
     }
     sqlConn_->commit();
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "成功发送好友申请")
+}
+
+void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {
+    LOG_DEBUG << "UserController::handleAuthMsg";
+    void(this);
+    if (!params.contains("token")) {
+        RETURN_ERROR("缺少token")
+    }
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_ERROR("无效token")
+    }
+    IMStore::getInstance()->addTcpConnection(userId, connPtr);
 }
