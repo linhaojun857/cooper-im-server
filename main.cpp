@@ -54,6 +54,7 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/user/getVFCode", userController, &UserController::getVfCode)
         ADD_HTTP_ENDPOINT("POST", "/user/search", userController, &UserController::search)
         ADD_HTTP_ENDPOINT("POST", "/user/addFriend", userController, &UserController::addFriend)
+        ADD_HTTP_ENDPOINT("POST", "/user/responseFriendApply", userController, &UserController::responseFriendApply)
         httpServer.start();
     });
     appTcpServerThread.join();

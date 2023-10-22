@@ -65,21 +65,25 @@ struct FriendApply {
     int id{};
     int from_id{};
     int to_id{};
-    std::string avatar;
-    std::string nickname;
+    std::string from_avatar;
+    std::string from_nickname;
+    std::string to_avatar;
+    std::string to_nickname;
     std::string reason;
     // 0: 待处理 1: 通过申请 2: 拒绝申请
     int agree{};
 
     FriendApply() = default;
 
-    FriendApply(int id, int from_id, int to_id, const std::string& avatar, const std::string& nickname,
-                const std::string& reason, int agree) {
+    FriendApply(int id, int from_id, int to_id, const std::string& from_avatar, const std::string& from_nickname,
+                const std::string& to_avatar, const std::string& to_nickname, const std::string& reason, int agree) {
         this->id = id;
         this->from_id = from_id;
         this->to_id = to_id;
-        this->avatar = avatar;
-        this->nickname = nickname;
+        this->from_avatar = from_avatar;
+        this->from_nickname = from_nickname;
+        this->to_avatar = to_avatar;
+        this->to_nickname = to_nickname;
         this->reason = reason;
         this->agree = agree;
     }
@@ -89,14 +93,16 @@ struct FriendApply {
         j["id"] = id;
         j["from_id"] = from_id;
         j["to_id"] = to_id;
-        j["avatar"] = avatar;
-        j["nickname"] = nickname;
+        j["from_avatar"] = from_avatar;
+        j["from_nickname"] = from_nickname;
+        j["to_avatar"] = to_avatar;
+        j["to_nickname"] = to_nickname;
         j["reason"] = reason;
         j["agree"] = agree;
         return j;
     }
 };
-REFLECTION(FriendApply, id, from_id, to_id, avatar, nickname, agree)
+REFLECTION(FriendApply, id, from_id, to_id, from_avatar, from_nickname, to_avatar, to_nickname, agree)
 
 struct Notify {
     int id;

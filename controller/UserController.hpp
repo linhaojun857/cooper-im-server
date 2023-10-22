@@ -21,6 +21,8 @@ public:
 
     void addFriend(const HttpRequest& request, HttpResponse& response);
 
+    void responseFriendApply(const HttpRequest& request, HttpResponse& response);
+
     void handleAuthMsg(const TcpConnectionPtr& connPtr, const json& params);
 
 private:

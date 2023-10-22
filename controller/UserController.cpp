@@ -100,13 +100,19 @@ void UserController::search(const cooper::HttpRequest& request, cooper::HttpResp
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
+    std::vector<std::tuple<int>> ret =
+        sqlConn_->query<std::tuple<int>>("select b_id from friend where a_id = " + std::to_string(userId));
+    std::set<int> friendIds;
+    for (auto& item : ret) {
+        friendIds.insert(std::get<0>(item));
+    }
     std::vector<User> users;
     std::regex regex(R"(^1(3\d|4[5-9]|5[0-35-9]|6[2567]|7[0-8]|8\d|9[0-35-9])\d{8}$)");
     if (std::regex_match(keyword, regex)) {
         users = sqlConn_->query<User>("username=" + keyword);
         if (!users.empty()) {
             for (auto& item : users) {
-                if (item.id != userId) {
+                if (item.id != userId && friendIds.find(item.id) == friendIds.end()) {
                     j["fsrs"].push_back(item.toJson());
                 }
             }
@@ -116,7 +122,7 @@ void UserController::search(const cooper::HttpRequest& request, cooper::HttpResp
     users = sqlConn_->query<User>("nickname like '%" + keyword + "%'");
     if (!users.empty()) {
         for (auto& item : users) {
-            if (item.id != userId) {
+            if (item.id != userId && friendIds.find(item.id) == friendIds.end()) {
                 j["fsrs"].push_back(item.toJson());
             }
         }
@@ -162,17 +168,12 @@ void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpR
         } else {
             RETURN_RESPONSE(HTTP_ERROR_CODE, "用户未登录")
         }
-        FriendApply fa(0, userId, peerId, user.avatar, user.nickname, reason, 0);
+        auto peerUser = sqlConn_->query<User>("id = " + std::to_string(peerId));
+        FriendApply fa(0, userId, peerId, user.avatar, user.nickname, peerUser[0].avatar, peerUser[0].nickname, reason,
+                       0);
         sqlConn_->insert(fa);
         auto id = sqlConn_->query<std::tuple<int>>("select LAST_INSERT_ID()");
         Notify notify(0, userId, 0, std::get<0>(id[0]), 1);
-        if (!IMStore::getInstance()->haveTcpConnection(userId)) {
-            RETURN_RESPONSE(HTTP_ERROR_CODE, "用户未登录")
-        }
-        auto userConnPtr = IMStore::getInstance()->getTcpConnection(userId);
-        json toUserJson = fa.toJson();
-        toUserJson["type"] = PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_I;
-        userConnPtr->sendJson(toUserJson);
         sqlConn_->insert(notify);
         notify.to_id = peerId;
         if (IMStore::getInstance()->haveTcpConnection(peerId)) {
@@ -191,6 +192,79 @@ void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpR
     }
     sqlConn_->commit();
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "成功发送好友申请")
+}
+
+void UserController::responseFriendApply(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "UserController::responseFriendApply";
+    auto params = json::parse(request.body_);
+    json j;
+    if (!params.contains("from_id")) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "from_id")
+    }
+    int from_id = params["from_id"].get<int>();
+    if (!params.contains("agree")) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少agree")
+    }
+    int agree = params["agree"].get<int>();
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    sqlConn_->begin();
+    try {
+        auto fa = sqlConn_->query<FriendApply>("from_id = " + std::to_string(from_id) +
+                                               " and to_id = " + std::to_string(userId) + " and agree = 0");
+        if (fa.empty()) {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "无效fa_id")
+        }
+        if (fa[0].to_id != userId) {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+        }
+        if (fa[0].agree != 0) {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "请勿重复操作")
+        }
+        if (agree == 1) {
+            Friend friend1(0, fa[0].from_id, fa[0].to_id, 0);
+            Friend friend2(0, fa[0].to_id, fa[0].from_id, 0);
+            sqlConn_->insert(friend1);
+            sqlConn_->insert(friend2);
+        }
+        fa[0].agree = agree;
+        sqlConn_->update(fa[0]);
+        Notify notify(0, userId, 0, fa[0].id, 1);
+        sqlConn_->insert(notify);
+        notify.to_id = fa[0].from_id;
+        if (!IMStore::getInstance()->haveTcpConnection(userId)) {
+            sqlConn_->rollback();
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "用户未登录")
+        }
+        if (fa[0].agree == 1) {
+            json j1 = IMStore::getInstance()->getOnlineUser(from_id).toJson();
+            j1["type"] = PROTOCOL_TYPE_FRIEND_ENTITY;
+            IMStore::getInstance()->getTcpConnection(userId)->sendJson(j1);
+        }
+        if (IMStore::getInstance()->haveTcpConnection(fa[0].from_id)) {
+            auto connPtr = IMStore::getInstance()->getTcpConnection(fa[0].from_id);
+            json toUserJson = fa[0].toJson();
+            toUserJson["type"] = PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_I;
+            connPtr->sendJson(toUserJson);
+            if (fa[0].agree == 1) {
+                json j2 = IMStore::getInstance()->getOnlineUser(userId).toJson();
+                j2["type"] = PROTOCOL_TYPE_FRIEND_ENTITY;
+                connPtr->sendJson(j2);
+            }
+        } else {
+            notify.is_complete = 0;
+        }
+        sqlConn_->insert(notify);
+    } catch (std::exception& e) {
+        sqlConn_->rollback();
+        LOG_ERROR << e.what();
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "回应FriendApply失败")
+    }
+    sqlConn_->commit();
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "回应FriendApply成功")
 }
 
 void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {
