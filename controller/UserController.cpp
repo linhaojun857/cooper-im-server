@@ -19,13 +19,8 @@ void UserController::userLogin(const cooper::HttpRequest& request, cooper::HttpR
     LOG_DEBUG << "UserController::userLogin";
     json j;
     auto params = json::parse(request.body_);
-    if (!params.contains("username")) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少username")
-    }
+    HTTP_CHECK_PARAMS(params, "username", "password")
     auto username = params["username"].get<std::string>();
-    if (!params.contains("password")) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少password")
-    }
     auto password = params["password"].get<std::string>();
     std::regex regex(R"(^1(3\d|4[5-9]|5[0-35-9]|6[2567]|7[0-8]|8\d|9[0-35-9])\d{8}$)");
     if (!std::regex_match(username, regex)) {
@@ -42,16 +37,6 @@ void UserController::userLogin(const cooper::HttpRequest& request, cooper::HttpR
     j["token"] = JwtUtil::createToken(users[0].id);
     j["user"] = users[0].toJson();
     IMStore::getInstance()->addOnlineUser(users[0].id, users[0]);
-    //    std::vector<User> friends = sqlConn_->query<User>(
-    //        "select user.* "
-    //        "from (select * from friend where a_id = " +
-    //            std::to_string(users[0].id) +
-    //            ") as t1 "
-    //            "left join user on t1.b_id = user.id;",
-    //        1);
-    //    for (auto& f : friends) {
-    //        j["friends"].push_back(f.toJson());
-    //    }
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "登录成功")
 }
 
@@ -59,13 +44,8 @@ void UserController::userRegister(const cooper::HttpRequest& request, cooper::Ht
     LOG_DEBUG << "UserController::userRegister";
     json j;
     auto params = json::parse(request.body_);
-    if (!params.contains("username")) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少username")
-    }
+    HTTP_CHECK_PARAMS(params, "username", "password")
     auto username = params["username"].get<std::string>();
-    if (!params.contains("password")) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少password")
-    }
     auto password = params["password"].get<std::string>();
     std::regex regex(R"(^1(3\d|4[5-9]|5[0-35-9]|6[2567]|7[0-8]|8\d|9[0-35-9])\d{8}$)");
     if (!std::regex_match(username, regex)) {
@@ -98,11 +78,11 @@ void UserController::getSyncState(const HttpRequest& request, HttpResponse& resp
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto ret = sqlConn_->query<SyncState>("user_id = " + std::to_string(userId));
-    if (ret.empty()) {
+    auto syncState = sqlConn_->query<SyncState>("user_id = " + std::to_string(userId));
+    if (syncState.empty()) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "获取同步状态失败")
     }
-    j = ret[0].toJson();
+    j = syncState[0].toJson();
     LOG_DEBUG << "UserController::getSyncState: " << j.dump();
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取同步状态成功")
 }
@@ -135,13 +115,8 @@ void UserController::search(const cooper::HttpRequest& request, cooper::HttpResp
     LOG_DEBUG << "UserController::search";
     json j;
     auto params = json::parse(request.body_);
-    if (!params.contains("keyword")) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少keyword")
-    }
+    HTTP_CHECK_PARAMS(params, "keyword", "token")
     auto keyword = params["keyword"].get<std::string>();
-    if (!params.contains("token")) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少token")
-    }
     std::string token = params["token"].get<std::string>();
     int userId = JwtUtil::parseToken(token);
     if (userId == -1) {
@@ -181,17 +156,9 @@ void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpR
     LOG_DEBUG << "UserController::addFriend";
     auto params = json::parse(request.body_);
     json j;
-    if (!params.contains("peerId")) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少peerId")
-    }
+    HTTP_CHECK_PARAMS(params, "peerId", "reason", "token")
     int peerId = params["peerId"].get<int>();
-    if (!params.contains("reason")) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少reason")
-    }
     std::string reason = params["reason"].get<std::string>();
-    if (!params.contains("token")) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少token")
-    }
     std::string token = params["token"].get<std::string>();
     int userId = JwtUtil::parseToken(token);
     if (userId == -1) {
@@ -250,13 +217,8 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
     LOG_DEBUG << "UserController::responseFriendApply";
     auto params = json::parse(request.body_);
     json j;
-    if (!params.contains("from_id")) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "from_id")
-    }
+    HTTP_CHECK_PARAMS(params, "from_id", "agree", "token")
     int from_id = params["from_id"].get<int>();
-    if (!params.contains("agree")) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少agree")
-    }
     int agree = params["agree"].get<int>();
     std::string token = params["token"].get<std::string>();
     int userId = JwtUtil::parseToken(token);
@@ -313,6 +275,14 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
             j2["notify_type"] = notify.notify_type;
             j2["data"] = fa[0].toJson();
             redisConn->lpush(REDIS_KEY_NOTIFY_QUEUE_PREFIX + std::to_string(fa[0].from_id), j2.dump());
+            auto syncState = sqlConn_->query<SyncState>("user_id = " + std::to_string(fa[0].from_id));
+            if (syncState.empty()) {
+                sqlConn_->rollback();
+                LOG_ERROR << "UserController::responseFriendApply: syncState.empty()";
+            }
+            syncState[0].friend_sync_state = 1;
+            syncState[0].addUpdatedFriend(userId);
+            sqlConn_->update(syncState[0]);
         }
         sqlConn_->insert(notify);
     } catch (std::exception& e) {
@@ -336,4 +306,21 @@ void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, cons
         RETURN_ERROR("无效token")
     }
     IMStore::getInstance()->addTcpConnection(userId, connPtr);
+}
+
+void UserController::handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, const json& params) {
+    LOG_DEBUG << "UserController::handleSyncCompleteMsg";
+    TCP_CHECK_PARAMS(params, "token")
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_ERROR("无效token")
+    }
+    auto syncState = sqlConn_->query<SyncState>("user_id = " + std::to_string(userId));
+    if (syncState.empty()) {
+        LOG_ERROR << "UserController::handleSyncCompleteMsg: syncState.empty()";
+    }
+    syncState[0].friend_sync_state = 1;
+    syncState[0].updated_friends = "[]";
+    sqlConn_->update(syncState[0]);
 }

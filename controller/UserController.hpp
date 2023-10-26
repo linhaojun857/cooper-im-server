@@ -29,6 +29,8 @@ public:
 
     void handleAuthMsg(const TcpConnectionPtr& connPtr, const json& params);
 
+    void handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, const json& params);
+
 private:
     std::shared_ptr<dbng<mysql>> sqlConn_;
 };
