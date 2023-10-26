@@ -1,3 +1,5 @@
+#include <sw/redis++/redis++.h>
+
 #include <cooper/net/AppTcpServer.hpp>
 #include <cooper/net/HttpServer.hpp>
 #include <cooper/util/AsyncLogWriter.hpp>
@@ -6,8 +8,10 @@
 #include <regex>
 
 #include "controller//UserController.hpp"
+#include "controller/MsgController.hpp"
 #include "define/IMDefine.hpp"
 #include "entity/Entity.hpp"
+#include "store/IMStore.hpp"
 
 #define ADD_HTTP_MOUNTPOINT(mountPoint, dir) \
     Headers headers;                         \
@@ -21,6 +25,7 @@
 
 using namespace cooper;
 using namespace ormpp;
+using namespace sw::redis;
 using namespace std::placeholders;
 
 int main() {
@@ -36,14 +41,32 @@ int main() {
     if (!sqlConn->create_datatable<User>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<Notify>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"})) {
-        LOG_ERROR << "create table user failed";
+        !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<SyncState>(ormpp_auto_key{"id"})) {
+        LOG_ERROR << "create table  failed";
         return -1;
     }
+    ConnectionOptions connectionOptions;
+    connectionOptions.host = REDIS_SERVER_IP;
+    connectionOptions.port = REDIS_SERVER_PORT;
+    connectionOptions.password = REDIS_SERVER_PASSWORD;
+    connectionOptions.db = REDIS_SERVER_DATABASE;
+    ConnectionPoolOptions connectionPoolOptions;
+    connectionPoolOptions.size = REDIS_CONNECTION_POOL_SIZE;
+    std::shared_ptr<Redis> redisConn = std::make_shared<Redis>(connectionOptions, connectionPoolOptions);
+    IMStore::getInstance()->setRedisConn(redisConn);
     UserController userController(sqlConn);
+    MsgController msgController(sqlConn);
     std::thread appTcpServerThread([&]() {
         AppTcpServer appTcpServer(8888, false);
+        appTcpServer.setConnectionCallback([&](const TcpConnectionPtr& connPtr) {
+            if (connPtr->disconnected()) {
+                IMStore::getInstance()->removeTcpConnectionByConn(connPtr);
+            }
+        });
         ADD_TCP_ENDPOINT(PROTOCOL_TYPE_AUTH_MSG, userController, &UserController::handleAuthMsg)
+        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_SEND_MESSAGE, msgController, &MsgController::handlePersonSendMsg)
         appTcpServer.start();
     });
     std::thread httpServerThread([&]() {
@@ -51,6 +74,8 @@ int main() {
         ADD_HTTP_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static")
         ADD_HTTP_ENDPOINT("POST", "/user/login", userController, &UserController::userLogin)
         ADD_HTTP_ENDPOINT("POST", "/user/register", userController, &UserController::userRegister)
+        ADD_HTTP_ENDPOINT("POST", "/user/getFriends", userController, &UserController::getFriends)
+        ADD_HTTP_ENDPOINT("POST", "/user/getSyncState", userController, &UserController::getSyncState)
         ADD_HTTP_ENDPOINT("POST", "/user/getVFCode", userController, &UserController::getVfCode)
         ADD_HTTP_ENDPOINT("POST", "/user/search", userController, &UserController::search)
         ADD_HTTP_ENDPOINT("POST", "/user/addFriend", userController, &UserController::addFriend)

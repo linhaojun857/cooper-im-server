@@ -30,7 +30,38 @@ struct User {
         this->feeling = feeling;
     }
 
+    User(int id, const std::string& username, const std::string& nickname, const std::string& avatar,
+         const std::string& status, const std::string& feeling) {
+        this->id = id;
+        this->username = username;
+        this->nickname = nickname;
+        this->avatar = avatar;
+        this->status = status;
+        this->feeling = feeling;
+    }
+
+    static std::shared_ptr<User> fromJson(const json& j) {
+        if (j.contains("username")) {
+            std::cout << j["username"].get<std::string>() << std::endl;
+        }
+        auto user = std::make_shared<User>(j["id"].get<int>(), j["username"].get<std::string>(),
+                                           j["nickname"].get<std::string>(), j["avatar"].get<std::string>(),
+                                           j["status"].get<std::string>(), j["feeling"].get<std::string>());
+        return user;
+    }
+
     json toJson() {
+        json j;
+        j["id"] = id;
+        j["username"] = username;
+        j["nickname"] = nickname;
+        j["avatar"] = avatar;
+        j["status"] = status;
+        j["feeling"] = feeling;
+        return j;
+    }
+
+    [[nodiscard]] json toJson() const {
         json j;
         j["id"] = id;
         j["username"] = username;
@@ -111,16 +142,14 @@ struct Notify {
     // 0: 好友申请...
     int notify_type;
     int fa_id;
-    int is_complete;
 
     Notify() = default;
 
-    Notify(int id, int to_id, int type, int fa_id, int is_complete) {
+    Notify(int id, int to_id, int type, int fa_id) {
         this->id = id;
         this->to_id = to_id;
         this->notify_type = type;
         this->fa_id = fa_id;
-        this->is_complete = is_complete;
     }
 
     json toJson() {
@@ -129,10 +158,77 @@ struct Notify {
         j["to_id"] = to_id;
         j["notify_type"] = notify_type;
         j["fa_id"] = fa_id;
-        j["is_complete"] = is_complete;
         return j;
     }
 };
-REFLECTION(Notify, id, to_id, notify_type, fa_id, is_complete)
+REFLECTION(Notify, id, to_id, notify_type, fa_id)
+
+struct PersonMessage {
+    int id{};
+    int from_id{};
+    int to_id{};
+    int message_type{};
+    std::string message;
+    std::string file_url;
+    time_t timestamp{};
+
+    PersonMessage() = default;
+
+    PersonMessage(int from_id, int to_id, int message_type, const std::string& message, const std::string& file_url,
+                  time_t timestamp) {
+        this->id = 0;
+        this->from_id = from_id;
+        this->to_id = to_id;
+        this->message_type = message_type;
+        this->message = message;
+        this->file_url = file_url;
+        this->timestamp = timestamp;
+    }
+
+    json toJson() {
+        json j;
+        j["id"] = id;
+        j["from_id"] = from_id;
+        j["to_id"] = to_id;
+        j["message_type"] = message_type;
+        j["message"] = message;
+        j["file_url"] = file_url;
+        j["timestamp"] = timestamp;
+        return j;
+    }
+};
+
+REFLECTION(PersonMessage, id, from_id, to_id, message_type, message, file_url, timestamp)
+
+struct SyncState {
+    int id{};
+    int user_id{};
+    int friend_sync_state{};
+    std::string updated_friends;
+
+    SyncState() = default;
+
+    explicit SyncState(int userId) {
+        this->user_id = userId;
+        updated_friends = "[]";
+    }
+
+    void addUpdatedFriend(int friendId) {
+        json j = json::parse(updated_friends);
+        j.push_back(friendId);
+        updated_friends = j.dump();
+    }
+
+    json toJson() {
+        json j;
+        j["id"] = id;
+        j["user_id"] = user_id;
+        j["friend_sync_state"] = friend_sync_state;
+        j["updated_friends"] = updated_friends;
+        return j;
+    }
+};
+
+REFLECTION(SyncState, id, user_id, friend_sync_state, updated_friends)
 
 #endif

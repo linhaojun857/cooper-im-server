@@ -1,12 +1,15 @@
 #ifndef store_IMStore_hpp
 #define store_IMStore_hpp
 
+#include <sw/redis++/redis++.h>
+
 #include <cooper/net/TcpConnection.hpp>
 #include <unordered_map>
 
 #include "entity/Entity.hpp"
 
 using namespace cooper;
+using namespace sw::redis;
 
 class IMStore {
 public:
@@ -14,9 +17,13 @@ public:
 
     IMStore();
 
+    void setRedisConn(const std::shared_ptr<Redis>& redisConn);
+
+    std::shared_ptr<Redis> getRedisConn();
+
     void addOnlineUser(int id, const User& user);
 
-    User getOnlineUser(int id);
+    std::shared_ptr<User> getOnlineUser(int id);
 
     void removeOnlineUser(int id);
 
@@ -26,13 +33,16 @@ public:
 
     TcpConnectionPtr getTcpConnection(int id);
 
-    void removeTcpConnection(int id);
+    void removeTcpConnectionById(int id);
+
+    void removeTcpConnectionByConn(const TcpConnectionPtr& connPtr);
 
     bool haveTcpConnection(int id);
 
 private:
-    std::unordered_map<int, User> onlineUsers_;
+    std::shared_ptr<Redis> redisConn_;
     std::unordered_map<int, TcpConnectionPtr> tcpConnections_;
+    std::unordered_map<TcpConnectionPtr, int> tcpConnectionsReverse_;
 };
 
 #endif

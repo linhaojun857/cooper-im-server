@@ -7,6 +7,12 @@
 #define MYSQL_SERVER_PASSWORD ("20030802")
 #define MYSQL_SERVER_DATABASE ("cooper_im")
 
+#define REDIS_SERVER_IP ("127.0.0.1")
+#define REDIS_SERVER_PORT (6379)
+#define REDIS_SERVER_PASSWORD ("123456")
+#define REDIS_SERVER_DATABASE (0)
+#define REDIS_CONNECTION_POOL_SIZE (3)
+
 #define HTTP_SUCCESS_CODE (20000)
 #define HTTP_ERROR_CODE (30000)
 
@@ -27,11 +33,33 @@
     connPtr->sendJson(j_err);                \
     return;
 
+#define TCP_CHECK_PARAMS(params, ...)    \
+    std::string param[] = {__VA_ARGS__}; \
+    for (auto& i : param) {              \
+        if (!params.contains(i)) {       \
+            RETURN_ERROR("缺少" + i)     \
+        }                                \
+    }
+
+#define HTTP_CHECK_PARAMS(params, ...)                   \
+    std::string param[] = {__VA_ARGS__};                 \
+    for (auto& i : param) {                              \
+        if (!params.contains(i)) {                       \
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少" + i) \
+        }                                                \
+    }
+
 #define PROTOCOL_TYPE_BASE (1000)
 #define PROTOCOL_TYPE_AUTH_MSG (PROTOCOL_TYPE_BASE + 1)
 #define PROTOCOL_TYPE_ERROR_MSG (PROTOCOL_TYPE_BASE + 2)
 #define PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_I (PROTOCOL_TYPE_BASE + 3)
 #define PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_P (PROTOCOL_TYPE_BASE + 4)
 #define PROTOCOL_TYPE_FRIEND_ENTITY (PROTOCOL_TYPE_BASE + 5)
+#define PROTOCOL_TYPE_SEND_MESSAGE (PROTOCOL_TYPE_BASE + 6)
+
+#define REDIS_KEY_ONLINE_USERS "online_users"
+#define REDIS_KEY_NOTIFY_QUEUE_PREFIX "notify_queue:"
+#define REDIS_KEY_OFFLINE_MSG "offline_msg:"
+#define REDIS_KEY_SYNC_STATE_PREFIX "sync_state:"
 
 #endif

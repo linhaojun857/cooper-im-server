@@ -1,5 +1,5 @@
-#ifndef service_UserService_HPP_
-#define service_UserService_HPP_
+#ifndef controller_UserController_hpp
+#define controller_UserController_hpp
 #include <cooper/net/Http.hpp>
 #include <dbng.hpp>
 #include <mysql.hpp>
@@ -16,6 +16,10 @@ public:
     void userLogin(const HttpRequest& request, HttpResponse& response);
 
     void userRegister(const HttpRequest& request, HttpResponse& response);
+
+    void getSyncState(const HttpRequest& request, HttpResponse& response);
+
+    void getFriends(const HttpRequest& request, HttpResponse& response);
 
     void search(const HttpRequest& request, HttpResponse& response);
 
