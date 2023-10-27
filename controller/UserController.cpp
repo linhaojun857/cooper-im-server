@@ -60,15 +60,11 @@ void UserController::userRegister(const cooper::HttpRequest& request, cooper::Ht
     if (sqlConn_->insert(user) != 1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "注册失败")
     }
-    auto id = sqlConn_->query<std::tuple<int>>("select LAST_INSERT_ID()");
-    SyncState syncState(std::get<0>(id[0]));
-    if (!sqlConn_->insert(syncState)) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "注册失败")
-    }
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "注册成功")
 }
 
 void UserController::getSyncState(const HttpRequest& request, HttpResponse& response) {
+    void(this);
     LOG_DEBUG << "UserController::getSyncState";
     json j;
     auto params = json::parse(request.body_);
@@ -78,17 +74,21 @@ void UserController::getSyncState(const HttpRequest& request, HttpResponse& resp
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto syncState = sqlConn_->query<SyncState>("user_id = " + std::to_string(userId));
-    if (syncState.empty()) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "获取同步状态失败")
+    auto redisConn = IMStore::getInstance()->getRedisConn();
+    auto ret = redisConn->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId));
+    if (!ret.has_value()) {
+        SyncState syncState(userId);
+        redisConn->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
+        j = syncState.toJson();
+    } else {
+        j = json::parse(ret.value());
     }
-    j = syncState[0].toJson();
     LOG_DEBUG << "UserController::getSyncState: " << j.dump();
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取同步状态成功")
 }
 
-void UserController::getFriends(const HttpRequest& request, HttpResponse& response) {
-    LOG_DEBUG << "UserController::getFriends";
+void UserController::getAllFriends(const HttpRequest& request, HttpResponse& response) {
+    LOG_DEBUG << "UserController::getAllFriends";
     json j;
     auto params = json::parse(request.body_);
     HTTP_CHECK_PARAMS(params, "token")
@@ -107,7 +107,32 @@ void UserController::getFriends(const HttpRequest& request, HttpResponse& respon
     for (auto& f : friends) {
         j["friends"].push_back(f.toJson());
     }
-    LOG_DEBUG << "UserController::getFriends: " << j.dump();
+    LOG_DEBUG << "UserController::getAllFriends: " << j.dump();
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取好友列表成功")
+}
+
+void UserController::getFriendsByIds(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "UserController::getFriendsByIds";
+    json j;
+    auto params = json::parse(request.body_);
+    HTTP_CHECK_PARAMS(params, "token", "friendIds")
+    auto token = params["token"].get<std::string>();
+    auto userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    auto friendIds = params["friendIds"].get<std::vector<int>>();
+    std::string sql = "select * from user where id in (";
+    for (auto& id : friendIds) {
+        sql += std::to_string(id) + ",";
+    }
+    sql.pop_back();
+    sql += ")";
+    auto friends = sqlConn_->query<User>(sql);
+    for (auto& f : friends) {
+        j["friends"].push_back(f.toJson());
+    }
+    LOG_DEBUG << "UserController::getFriendsByIds: " << j.dump();
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取好友列表成功")
 }
 
@@ -275,14 +300,20 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
             j2["notify_type"] = notify.notify_type;
             j2["data"] = fa[0].toJson();
             redisConn->lpush(REDIS_KEY_NOTIFY_QUEUE_PREFIX + std::to_string(fa[0].from_id), j2.dump());
-            auto syncState = sqlConn_->query<SyncState>("user_id = " + std::to_string(fa[0].from_id));
-            if (syncState.empty()) {
-                sqlConn_->rollback();
-                LOG_ERROR << "UserController::responseFriendApply: syncState.empty()";
+            auto ret = redisConn->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(fa[0].from_id));
+            if (!ret.has_value()) {
+                SyncState syncState(fa[0].from_id);
+                syncState.friend_sync_state = 1;
+                syncState.addInsertedFriendId(userId);
+                redisConn->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(fa[0].from_id), syncState.toJson().dump());
+            } else {
+                SyncState syncState = SyncState::fromJson(json::parse(ret.value()));
+                syncState.friend_sync_state = 1;
+                syncState.addUpdatedFriendId(userId);
+                redisConn->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(fa[0].from_id), syncState.toJson().dump());
             }
-            syncState[0].friend_sync_state = 1;
-            syncState[0].addUpdatedFriend(userId);
-            sqlConn_->update(syncState[0]);
+            redisConn->lpush(REDIS_KEY_SERVER_PUSH_FRIEND_ENTITY_PREFIX + std::to_string(fa[0].from_id),
+                             IMStore::getInstance()->getOnlineUser(userId)->toJson().dump());
         }
         sqlConn_->insert(notify);
     } catch (std::exception& e) {
@@ -309,6 +340,7 @@ void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, cons
 }
 
 void UserController::handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, const json& params) {
+    void(this);
     LOG_DEBUG << "UserController::handleSyncCompleteMsg";
     TCP_CHECK_PARAMS(params, "token")
     std::string token = params["token"].get<std::string>();
@@ -316,11 +348,17 @@ void UserController::handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, cons
     if (userId == -1) {
         RETURN_ERROR("无效token")
     }
-    auto syncState = sqlConn_->query<SyncState>("user_id = " + std::to_string(userId));
-    if (syncState.empty()) {
-        LOG_ERROR << "UserController::handleSyncCompleteMsg: syncState.empty()";
+    auto redisConn = IMStore::getInstance()->getRedisConn();
+    auto ret = redisConn->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId));
+    if (!ret.has_value()) {
+        LOG_ERROR << "UserController::handleSyncCompleteMsg: "
+                  << "获取同步状态失败";
+        SyncState syncState(userId);
+        syncState.friend_sync_state = 1;
+        redisConn->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
+    } else {
+        SyncState syncState = SyncState::fromJson(json::parse(ret.value()));
+        syncState.friend_sync_state = 1;
+        redisConn->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
     }
-    syncState[0].friend_sync_state = 1;
-    syncState[0].updated_friends = "[]";
-    sqlConn_->update(syncState[0]);
 }

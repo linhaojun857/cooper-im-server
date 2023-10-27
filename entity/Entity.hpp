@@ -5,6 +5,8 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
+#include "define/IMDefine.hpp"
+
 using namespace ormpp;
 using namespace nlohmann;
 
@@ -185,6 +187,13 @@ struct PersonMessage {
         this->timestamp = timestamp;
     }
 
+    static PersonMessage fromJson(const json& j) {
+        PersonMessage pm(j["from_id"].get<int>(), j["to_id"].get<int>(), j["message_type"].get<int>(),
+                         j["message"].get<std::string>(), j["file_url"].get<std::string>(),
+                         j["timestamp"].get<time_t>());
+        return pm;
+    }
+
     json toJson() {
         json j;
         j["id"] = id;
@@ -204,19 +213,31 @@ struct SyncState {
     int id{};
     int user_id{};
     int friend_sync_state{};
-    std::string updated_friends;
+    std::vector<std::pair<int, int>> updated_friendIds;
 
     SyncState() = default;
 
     explicit SyncState(int userId) {
         this->user_id = userId;
-        updated_friends = "[]";
     }
 
-    void addUpdatedFriend(int friendId) {
-        json j = json::parse(updated_friends);
-        j.push_back(friendId);
-        updated_friends = j.dump();
+    void addInsertedFriendId(int friendId) {
+        updated_friendIds.emplace_back(friendId, SYNC_DATA_FRIEND_ENTITY_INSERT);
+    }
+
+    void addUpdatedFriendId(int friendId) {
+        updated_friendIds.emplace_back(friendId, SYNC_DATA_FRIEND_ENTITY_UPDATE);
+    }
+
+    void addDeletedFriendId(int friendId) {
+        updated_friendIds.emplace_back(friendId, SYNC_DATA_FRIEND_ENTITY_DELETE);
+    }
+
+    static SyncState fromJson(const json& j) {
+        SyncState state(j["user_id"].get<int>());
+        state.friend_sync_state = j["friend_sync_state"].get<int>();
+        state.updated_friendIds = j["updated_friendIds"].get<std::vector<std::pair<int, int>>>();
+        return state;
     }
 
     json toJson() {
@@ -224,11 +245,11 @@ struct SyncState {
         j["id"] = id;
         j["user_id"] = user_id;
         j["friend_sync_state"] = friend_sync_state;
-        j["updated_friends"] = updated_friends;
+        j["updated_friendIds"] = updated_friendIds;
         return j;
     }
 };
 
-REFLECTION(SyncState, id, user_id, friend_sync_state, updated_friends)
+// REFLECTION(SyncState, id, user_id, friend_sync_state, updated_friendIds)
 
 #endif

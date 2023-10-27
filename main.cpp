@@ -42,8 +42,7 @@ int main() {
         !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<Notify>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<SyncState>(ormpp_auto_key{"id"})) {
+        !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"})) {
         LOG_ERROR << "create table  failed";
         return -1;
     }
@@ -66,7 +65,8 @@ int main() {
             }
         });
         ADD_TCP_ENDPOINT(PROTOCOL_TYPE_AUTH_MSG, userController, &UserController::handleAuthMsg)
-        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_SEND_MESSAGE, msgController, &MsgController::handlePersonSendMsg)
+        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_SYNC_COMPLETE_MESSAGE, userController, &UserController::handleSyncCompleteMsg)
+        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_PERSON_MESSAGE, msgController, &MsgController::handlePersonSendMsg)
         appTcpServer.start();
     });
     std::thread httpServerThread([&]() {
@@ -74,7 +74,8 @@ int main() {
         ADD_HTTP_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static")
         ADD_HTTP_ENDPOINT("POST", "/user/login", userController, &UserController::userLogin)
         ADD_HTTP_ENDPOINT("POST", "/user/register", userController, &UserController::userRegister)
-        ADD_HTTP_ENDPOINT("POST", "/user/getFriends", userController, &UserController::getFriends)
+        ADD_HTTP_ENDPOINT("POST", "/user/getAllFriends", userController, &UserController::getAllFriends)
+        ADD_HTTP_ENDPOINT("POST", "/user/getFriendsByIds", userController, &UserController::getFriendsByIds)
         ADD_HTTP_ENDPOINT("POST", "/user/getSyncState", userController, &UserController::getSyncState)
         ADD_HTTP_ENDPOINT("POST", "/user/getVFCode", userController, &UserController::getVfCode)
         ADD_HTTP_ENDPOINT("POST", "/user/search", userController, &UserController::search)

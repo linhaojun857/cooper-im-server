@@ -33,12 +33,14 @@
     connPtr->sendJson(j_err);                \
     return;
 
-#define TCP_CHECK_PARAMS(params, ...)    \
-    std::string param[] = {__VA_ARGS__}; \
-    for (auto& i : param) {              \
-        if (!params.contains(i)) {       \
-            RETURN_ERROR("缺少" + i)     \
-        }                                \
+#define TCP_CHECK_PARAMS(params, ...)        \
+    {                                        \
+        std::string param[] = {__VA_ARGS__}; \
+        for (auto& i : param) {              \
+            if (!params.contains(i)) {       \
+                RETURN_ERROR("缺少" + i)     \
+            }                                \
+        }                                    \
     }
 
 #define HTTP_CHECK_PARAMS(params, ...)                   \
@@ -55,12 +57,17 @@
 #define PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_I (PROTOCOL_TYPE_BASE + 3)
 #define PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_P (PROTOCOL_TYPE_BASE + 4)
 #define PROTOCOL_TYPE_FRIEND_ENTITY (PROTOCOL_TYPE_BASE + 5)
-#define PROTOCOL_TYPE_SEND_MESSAGE (PROTOCOL_TYPE_BASE + 6)
+#define PROTOCOL_TYPE_PERSON_MESSAGE (PROTOCOL_TYPE_BASE + 6)
 #define PROTOCOL_TYPE_SYNC_COMPLETE_MESSAGE (PROTOCOL_TYPE_BASE + 7)
 
 #define REDIS_KEY_ONLINE_USERS "online_users"
 #define REDIS_KEY_NOTIFY_QUEUE_PREFIX "notify_queue:"
 #define REDIS_KEY_OFFLINE_MSG "offline_msg:"
 #define REDIS_KEY_SYNC_STATE_PREFIX "sync_state:"
+#define REDIS_KEY_SERVER_PUSH_FRIEND_ENTITY_PREFIX "server_push_friend_entity:"
+
+#define SYNC_DATA_FRIEND_ENTITY_INSERT 1
+#define SYNC_DATA_FRIEND_ENTITY_UPDATE 2
+#define SYNC_DATA_FRIEND_ENTITY_DELETE 3
 
 #endif

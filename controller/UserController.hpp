@@ -19,7 +19,9 @@ public:
 
     void getSyncState(const HttpRequest& request, HttpResponse& response);
 
-    void getFriends(const HttpRequest& request, HttpResponse& response);
+    void getAllFriends(const HttpRequest& request, HttpResponse& response);
+
+    void getFriendsByIds(const HttpRequest& request, HttpResponse& response);
 
     void search(const HttpRequest& request, HttpResponse& response);
 
