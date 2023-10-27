@@ -64,7 +64,7 @@
 #define REDIS_KEY_NOTIFY_QUEUE_PREFIX "notify_queue:"
 #define REDIS_KEY_OFFLINE_MSG "offline_msg:"
 #define REDIS_KEY_SYNC_STATE_PREFIX "sync_state:"
-#define REDIS_KEY_SERVER_PUSH_FRIEND_ENTITY_PREFIX "server_push_friend_entity:"
+#define REDIS_KEY_SYNC_FRIEND_ENTITY_PREFIX "sync_friend_entity:"
 
 #define SYNC_DATA_FRIEND_ENTITY_INSERT 1
 #define SYNC_DATA_FRIEND_ENTITY_UPDATE 2
