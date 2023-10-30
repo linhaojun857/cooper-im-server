@@ -249,6 +249,10 @@ struct SyncState {
         friendIds.clear();
     }
 
+    void clearAllPersonMessageIds() {
+        personMessageIds.clear();
+    }
+
     static SyncState fromJson(const json& j) {
         SyncState state(j["user_id"].get<int>());
         state.friend_sync_state = j["friend_sync_state"].get<int>();

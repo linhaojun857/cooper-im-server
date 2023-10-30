@@ -45,9 +45,12 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
         LOG_ERROR << e.what();
         RETURN_ERROR("发送失败")
     }
+    auto j1 = personMessage.toJson();
+    j1["type"] = PROTOCOL_TYPE_PERSON_MESSAGE_SEND;
+    j1["status"] = SYNC_DATA_PERSON_MESSAGE_INSERT;
+    connPtr->sendJson(j1);
     if (IMStore::getInstance()->haveTcpConnection(personMessage.to_id)) {
         auto toConnPtr = IMStore::getInstance()->getTcpConnection(personMessage.to_id);
-        auto j1 = personMessage.toJson();
         j1["type"] = PROTOCOL_TYPE_PERSON_MESSAGE_RECV;
         j1["status"] = SYNC_DATA_PERSON_MESSAGE_INSERT;
         toConnPtr->sendJson(j1);
@@ -100,7 +103,7 @@ void MsgController::getSyncPersonMessages(const cooper::HttpRequest& request, co
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
     auto ret = redisConn_->lpop(REDIS_KEY_OFFLINE_MSG + std::to_string(userId));
-    while (!ret.has_value()) {
+    while (ret.has_value()) {
         j["personMessages"].push_back(json::parse(ret.value()));
         ret = redisConn_->lpop(REDIS_KEY_OFFLINE_MSG + std::to_string(userId));
     }

@@ -102,13 +102,13 @@ void addPersonMessageTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
         pm.id = 0;
         if (i % 2 == 0) {
             pm.from_id = 1;
-            pm.to_id = 2;
+            pm.to_id = 3;
         } else {
-            pm.from_id = 2;
+            pm.from_id = 3;
             pm.to_id = 1;
         }
         pm.message_type = 0;
-        pm.message = "这是测试消息" + std::to_string(i);
+        pm.message = "这是测试消息B-" + std::to_string(i);
         pm.timestamp = time(nullptr);
         sqlConn->insert(pm);
     }

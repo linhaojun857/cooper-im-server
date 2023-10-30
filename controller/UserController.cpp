@@ -376,12 +376,13 @@ void UserController::handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, cons
         LOG_ERROR << "UserController::handleSyncCompleteMsg: "
                   << "获取同步状态失败";
         SyncState syncState(userId);
-        syncState.friend_sync_state = 0;
         redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
     } else {
         SyncState syncState = SyncState::fromJson(json::parse(ret.value()));
         syncState.friend_sync_state = 0;
+        syncState.person_message_sync_state = 0;
         syncState.clearAllFriendIds();
+        syncState.clearAllPersonMessageIds();
         redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
     }
 }
