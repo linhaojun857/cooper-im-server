@@ -55,8 +55,8 @@ int main() {
     connectionPoolOptions.size = REDIS_CONNECTION_POOL_SIZE;
     std::shared_ptr<Redis> redisConn = std::make_shared<Redis>(connectionOptions, connectionPoolOptions);
     IMStore::getInstance()->setRedisConn(redisConn);
-    UserController userController(sqlConn);
-    MsgController msgController(sqlConn);
+    UserController userController(sqlConn, redisConn);
+    MsgController msgController(sqlConn, redisConn);
     std::thread appTcpServerThread([&]() {
         AppTcpServer appTcpServer(8888, false);
         appTcpServer.setConnectionCallback([&](const TcpConnectionPtr& connPtr) {
@@ -76,6 +76,7 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/user/register", userController, &UserController::userRegister)
         ADD_HTTP_ENDPOINT("POST", "/user/getAllFriends", userController, &UserController::getAllFriends)
         ADD_HTTP_ENDPOINT("POST", "/user/getFriendsByIds", userController, &UserController::getFriendsByIds)
+        ADD_HTTP_ENDPOINT("POST", "/user/getSyncFriends", userController, &UserController::getSyncFriends)
         ADD_HTTP_ENDPOINT("POST", "/user/getSyncState", userController, &UserController::getSyncState)
         ADD_HTTP_ENDPOINT("POST", "/user/getVFCode", userController, &UserController::getVfCode)
         ADD_HTTP_ENDPOINT("POST", "/user/search", userController, &UserController::search)

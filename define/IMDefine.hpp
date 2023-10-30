@@ -29,7 +29,7 @@
 #define RETURN_ERROR(msg_in)                 \
     json j_err;                              \
     j_err["type"] = PROTOCOL_TYPE_ERROR_MSG; \
-    j_err["msg"] = "缺少token";              \
+    j_err["msg"] = msg_in;                   \
     connPtr->sendJson(j_err);                \
     return;
 
@@ -69,5 +69,8 @@
 #define SYNC_DATA_FRIEND_ENTITY_INSERT 1
 #define SYNC_DATA_FRIEND_ENTITY_UPDATE 2
 #define SYNC_DATA_FRIEND_ENTITY_DELETE 3
+
+#define MSG_TYPE_TEXT 0
+#define MSG_TYPE_FILE 1
 
 #endif

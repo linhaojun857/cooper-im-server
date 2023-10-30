@@ -9,7 +9,8 @@
 #include "store/IMStore.hpp"
 #include "util/JwtUtil.hpp"
 
-UserController::UserController(std::shared_ptr<dbng<mysql>> sqlConn) : sqlConn_(std::move(sqlConn)) {
+UserController::UserController(std::shared_ptr<dbng<mysql>> sqlConn, std::shared_ptr<Redis> redisConn)
+    : sqlConn_(std::move(sqlConn)), redisConn_(std::move(redisConn)) {
 }
 
 void UserController::getVfCode(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
@@ -64,7 +65,6 @@ void UserController::userRegister(const cooper::HttpRequest& request, cooper::Ht
 }
 
 void UserController::getSyncState(const HttpRequest& request, HttpResponse& response) {
-    void(this);
     LOG_DEBUG << "UserController::getSyncState";
     json j;
     auto params = json::parse(request.body_);
@@ -74,11 +74,10 @@ void UserController::getSyncState(const HttpRequest& request, HttpResponse& resp
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto redisConn = IMStore::getInstance()->getRedisConn();
-    auto ret = redisConn->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId));
+    auto ret = redisConn_->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId));
     if (!ret.has_value()) {
         SyncState syncState(userId);
-        redisConn->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
+        redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
         j = syncState.toJson();
     } else {
         j = json::parse(ret.value());
@@ -134,6 +133,28 @@ void UserController::getFriendsByIds(const cooper::HttpRequest& request, cooper:
     }
     LOG_DEBUG << "UserController::getFriendsByIds: " << j.dump();
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取好友列表成功")
+}
+
+void UserController::getSyncFriends(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "UserController::getSyncFriends";
+    json j;
+    auto params = json::parse(request.body_);
+    HTTP_CHECK_PARAMS(params, "token")
+    auto token = params["token"].get<std::string>();
+    auto userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    auto ret = redisConn_->lpop(REDIS_KEY_SYNC_FRIEND_ENTITY_PREFIX + std::to_string(userId));
+    while (ret.has_value()) {
+        j["friends"].push_back(json::parse(ret.value()));
+        ret = redisConn_->lpop(REDIS_KEY_SYNC_FRIEND_ENTITY_PREFIX + std::to_string(userId));
+    }
+    if (!j.contains("friends")) {
+        RETURN_RESPONSE(HTTP_SUCCESS_CODE, "没有需要同步的好友")
+    }
+    LOG_DEBUG << "UserController::getSyncFriends: " << j.dump();
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取同步好友成功")
 }
 
 void UserController::search(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
@@ -221,12 +242,11 @@ void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpR
             toPeerJson["type"] = PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_P;
             peerConnPtr->sendJson(toPeerJson);
         } else {
-            auto redisConn = IMStore::getInstance()->getRedisConn();
             json j1;
             j1["notify_id"] = notify.id;
             j1["notify_type"] = notify.notify_type;
             j1["data"] = fa.toJson();
-            redisConn->lpush(REDIS_KEY_NOTIFY_QUEUE_PREFIX + std::to_string(peerId), j1.dump());
+            redisConn_->lpush(REDIS_KEY_NOTIFY_QUEUE_PREFIX + std::to_string(peerId), j1.dump());
         }
         sqlConn_->insert(notify);
     } catch (std::exception& e) {
@@ -295,27 +315,28 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
                 connPtr->sendJson(j2);
             }
         } else {
-            auto redisConn = IMStore::getInstance()->getRedisConn();
             json j2;
             j2["notify_id"] = notify.id;
             j2["notify_type"] = notify.notify_type;
             j2["data"] = fa[0].toJson();
-            redisConn->lpush(REDIS_KEY_NOTIFY_QUEUE_PREFIX + std::to_string(fa[0].from_id), j2.dump());
+            redisConn_->lpush(REDIS_KEY_NOTIFY_QUEUE_PREFIX + std::to_string(fa[0].from_id), j2.dump());
             if (fa[0].agree == 1) {
-                auto ret = redisConn->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(fa[0].from_id));
+                auto ret = redisConn_->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(fa[0].from_id));
                 if (!ret.has_value()) {
                     SyncState syncState(fa[0].from_id);
                     syncState.friend_sync_state = 1;
                     syncState.addInsertedFriendId(userId);
-                    redisConn->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(fa[0].from_id),
-                                   syncState.toJson().dump());
+                    redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(fa[0].from_id),
+                                    syncState.toJson().dump());
                 } else {
                     SyncState syncState = SyncState::fromJson(json::parse(ret.value()));
                     syncState.friend_sync_state = 1;
                     syncState.addInsertedFriendId(userId);
-                    redisConn->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(fa[0].from_id),
-                                   syncState.toJson().dump());
+                    redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(fa[0].from_id),
+                                    syncState.toJson().dump());
                 }
+                redisConn_->lpush(REDIS_KEY_SYNC_FRIEND_ENTITY_PREFIX + std::to_string(fa[0].from_id),
+                                  IMStore::getInstance()->getOnlineUser(userId)->toJson().dump());
             }
         }
         sqlConn_->insert(notify);
@@ -343,7 +364,6 @@ void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, cons
 }
 
 void UserController::handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, const json& params) {
-    void(this);
     LOG_DEBUG << "UserController::handleSyncCompleteMsg";
     TCP_CHECK_PARAMS(params, "token")
     std::string token = params["token"].get<std::string>();
@@ -351,18 +371,17 @@ void UserController::handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, cons
     if (userId == -1) {
         RETURN_ERROR("无效token")
     }
-    auto redisConn = IMStore::getInstance()->getRedisConn();
-    auto ret = redisConn->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId));
+    auto ret = redisConn_->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId));
     if (!ret.has_value()) {
         LOG_ERROR << "UserController::handleSyncCompleteMsg: "
                   << "获取同步状态失败";
         SyncState syncState(userId);
         syncState.friend_sync_state = 0;
-        redisConn->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
+        redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
     } else {
         SyncState syncState = SyncState::fromJson(json::parse(ret.value()));
         syncState.friend_sync_state = 0;
         syncState.clearAllFriendIds();
-        redisConn->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
+        redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
     }
 }
