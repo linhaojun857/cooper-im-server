@@ -151,7 +151,7 @@ void UserController::getSyncFriends(const cooper::HttpRequest& request, cooper::
         ret = redisConn_->lpop(REDIS_KEY_SYNC_FRIEND_ENTITY_PREFIX + std::to_string(userId));
     }
     if (!j.contains("friends")) {
-        RETURN_RESPONSE(HTTP_SUCCESS_CODE, "没有需要同步的好友")
+        LOG_DEBUG << "没有需要同步的好友";
     }
     LOG_DEBUG << "UserController::getSyncFriends: " << j.dump();
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取同步好友成功")

@@ -34,6 +34,8 @@ int main() {
     }
     std::vector<std::tuple<int>> friendIds;
     auto friends = sqlConn->query<std::tuple<int>>("select b_id from friend where a_id = ?", 1);
-    std::cout << friends.size() << std::endl;
+    for (const auto& item : friends) {
+        friendIds.emplace_back(std::get<0>(item));
+    }
     return 0;
 }

@@ -213,13 +213,16 @@ struct SyncState {
     int id{};
     int user_id{};
     int friend_sync_state{};
+    int person_message_sync_state{};
     std::vector<std::pair<int, int>> friendIds;
+    std::vector<std::pair<int, int>> personMessageIds;
 
     SyncState() = default;
 
     explicit SyncState(int userId) {
         this->user_id = userId;
         friend_sync_state = 0;
+        person_message_sync_state = 0;
     }
 
     void addInsertedFriendId(int friendId) {
@@ -234,6 +237,14 @@ struct SyncState {
         friendIds.emplace_back(friendId, SYNC_DATA_FRIEND_ENTITY_DELETE);
     }
 
+    void addInsertedPersonMessageId(int personMessageId) {
+        personMessageIds.emplace_back(personMessageId, SYNC_DATA_PERSON_MESSAGE_INSERT);
+    }
+
+    void addDeletedPersonMessageId(int personMessageId) {
+        personMessageIds.emplace_back(personMessageId, SYNC_DATA_PERSON_MESSAGE_DELETE);
+    }
+
     void clearAllFriendIds() {
         friendIds.clear();
     }
@@ -241,7 +252,9 @@ struct SyncState {
     static SyncState fromJson(const json& j) {
         SyncState state(j["user_id"].get<int>());
         state.friend_sync_state = j["friend_sync_state"].get<int>();
+        state.person_message_sync_state = j["person_message_sync_state"].get<int>();
         state.friendIds = j["friendIds"].get<std::vector<std::pair<int, int>>>();
+        state.personMessageIds = j["personMessageIds"].get<std::vector<std::pair<int, int>>>();
         return state;
     }
 
@@ -250,7 +263,9 @@ struct SyncState {
         j["id"] = id;
         j["user_id"] = user_id;
         j["friend_sync_state"] = friend_sync_state;
+        j["person_message_sync_state"] = person_message_sync_state;
         j["friendIds"] = friendIds;
+        j["personMessageIds"] = personMessageIds;
         return j;
     }
 };

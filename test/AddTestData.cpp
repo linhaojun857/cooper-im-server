@@ -70,26 +70,30 @@ void addUserTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
 }
 
 void addFriendTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
-    //    for (int i = 2; i <= 20; ++i) {
-    //        Friend f;
-    //        f.id = 0;
-    //        f.a_id = 1;
-    //        f.b_id = i;
-    //        f.group_type = 0;
-    //        sqlConn->insert(f);
-    //    }
-    for (int i = 2; i <= 20; ++i) {
-        Friend f;
+    for (int i = 2; i <= 12; ++i) {
+        Friend f{};
         f.id = 0;
-        f.a_id = 2;
-        if (i == 2) {
-            f.b_id = 1;
-        } else {
-            f.b_id = i;
-        }
+        f.a_id = 1;
+        f.b_id = i;
+        f.group_type = 0;
+        sqlConn->insert(f);
+        f.a_id = i;
+        f.b_id = 1;
         f.group_type = 0;
         sqlConn->insert(f);
     }
+    //    for (int i = 2; i <= 20; ++i) {
+    //        Friend f;
+    //        f.id = 0;
+    //        f.a_id = 2;
+    //        if (i == 2) {
+    //            f.b_id = 1;
+    //        } else {
+    //            f.b_id = i;
+    //        }
+    //        f.group_type = 0;
+    //        sqlConn->insert(f);
+    //    }
 }
 
 int main() {
@@ -105,8 +109,10 @@ int main() {
         LOG_ERROR << "create table user failed";
         return -1;
     }
-    auto ret = sqlConn->query<FriendApply>("from_id = " + std::to_string(1) + " and to_id = " + std::to_string(2) +
-                                           " and agree = 0");
-    std::cout << ret.size() << std::endl;
+    addFriendTestData(sqlConn);
+    //    auto ret = sqlConn->query<FriendApply>("from_id = " + std::to_string(1) + " and to_id = " + std::to_string(2)
+    //    +
+    //                                           " and agree = 0");
+    //    std::cout << ret.size() << std::endl;
     return 0;
 }

@@ -1,6 +1,7 @@
 #include "MsgController.hpp"
 
 #include <algorithm>
+#include <cooper/util/Logger.hpp>
 #include <utility>
 
 #include "define/IMDefine.hpp"
@@ -13,6 +14,7 @@ MsgController::MsgController(std::shared_ptr<dbng<mysql>> sqlConn, std::shared_p
 }
 
 void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const json& params) {
+    LOG_DEBUG << "MsgController::handlePersonSendMsg";
     TCP_CHECK_PARAMS(params, "token", "personMessage")
     auto token = params["token"].get<std::string>();
     int userId = JwtUtil::parseToken(token);
@@ -35,11 +37,73 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
         RETURN_ERROR("对方不是你的好友")
     }
     personMessage.timestamp = time(nullptr);
-    sqlConn_->insert(personMessage);
+    try {
+        sqlConn_->insert(personMessage);
+        auto msg_id = sqlConn_->query<std::tuple<int>>("select LAST_INSERT_ID()")[0];
+        personMessage.id = std::get<0>(msg_id);
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        RETURN_ERROR("发送失败")
+    }
     if (IMStore::getInstance()->haveTcpConnection(personMessage.to_id)) {
         auto toConnPtr = IMStore::getInstance()->getTcpConnection(personMessage.to_id);
-        toConnPtr->send(personMessage.toJson().dump());
+        auto j1 = personMessage.toJson();
+        j1["type"] = PROTOCOL_TYPE_PERSON_MESSAGE_RECV;
+        j1["statue"] = SYNC_DATA_PERSON_MESSAGE_INSERT;
+        toConnPtr->send(j1.dump());
     } else {
         redisConn_->lpush(REDIS_KEY_OFFLINE_MSG + std::to_string(personMessage.to_id), personMessage.toJson().dump());
+        auto ret = redisConn_->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(personMessage.to_id));
+        if (!ret.has_value()) {
+            SyncState syncState(personMessage.to_id);
+            syncState.person_message_sync_state = 1;
+            syncState.addInsertedPersonMessageId(personMessage.id);
+            redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(personMessage.to_id),
+                            syncState.toJson().dump());
+        } else {
+            SyncState syncState = SyncState::fromJson(json::parse(ret.value()));
+            syncState.person_message_sync_state = 1;
+            syncState.addInsertedPersonMessageId(personMessage.id);
+            redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(personMessage.to_id),
+                            syncState.toJson().dump());
+        }
     }
+}
+
+void MsgController::getAllPersonMessages(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "MsgController::getAllPersonMessages";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "token");
+    auto token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    auto pms = sqlConn_->query<PersonMessage>("from_id = ? or to_id = ?", userId, userId);
+    for (auto& pm : pms) {
+        j["personMessages"].push_back(pm.toJson());
+    }
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
+}
+
+void MsgController::getSyncPersonMessages(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "MsgController::getSyncPersonMessages";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "token")
+    auto token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    auto ret = redisConn_->lpop(REDIS_KEY_OFFLINE_MSG + std::to_string(userId));
+    while (!ret.has_value()) {
+        j["personMessages"].push_back(json::parse(ret.value()));
+        ret = redisConn_->lpop(REDIS_KEY_OFFLINE_MSG + std::to_string(userId));
+    }
+    if (!j.contains("personMessages")) {
+        LOG_DEBUG << "没有离线消息";
+    }
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
 }

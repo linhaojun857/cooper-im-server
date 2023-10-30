@@ -66,7 +66,7 @@ int main() {
         });
         ADD_TCP_ENDPOINT(PROTOCOL_TYPE_AUTH_MSG, userController, &UserController::handleAuthMsg)
         ADD_TCP_ENDPOINT(PROTOCOL_TYPE_SYNC_COMPLETE_MESSAGE, userController, &UserController::handleSyncCompleteMsg)
-        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_PERSON_MESSAGE, msgController, &MsgController::handlePersonSendMsg)
+        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_PERSON_MESSAGE_SEND, msgController, &MsgController::handlePersonSendMsg)
         appTcpServer.start();
     });
     std::thread httpServerThread([&]() {
@@ -82,6 +82,8 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/user/search", userController, &UserController::search)
         ADD_HTTP_ENDPOINT("POST", "/user/addFriend", userController, &UserController::addFriend)
         ADD_HTTP_ENDPOINT("POST", "/user/responseFriendApply", userController, &UserController::responseFriendApply)
+        ADD_HTTP_ENDPOINT("POST", "/msg/getAllPersonMessages", msgController, &MsgController::getAllPersonMessages)
+        ADD_HTTP_ENDPOINT("POST", "/msg/getSyncPersonMessages", msgController, &MsgController::getSyncPersonMessages)
         httpServer.start();
     });
     appTcpServerThread.join();

@@ -17,6 +17,10 @@ public:
 
     void handlePersonSendMsg(const TcpConnectionPtr& connPtr, const json& params);
 
+    void getAllPersonMessages(const HttpRequest& request, HttpResponse& response);
+
+    void getSyncPersonMessages(const HttpRequest& request, HttpResponse& response);
+
 private:
     std::shared_ptr<dbng<mysql>> sqlConn_;
     std::shared_ptr<Redis> redisConn_;
