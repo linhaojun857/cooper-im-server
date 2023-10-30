@@ -49,8 +49,8 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
         auto toConnPtr = IMStore::getInstance()->getTcpConnection(personMessage.to_id);
         auto j1 = personMessage.toJson();
         j1["type"] = PROTOCOL_TYPE_PERSON_MESSAGE_RECV;
-        j1["statue"] = SYNC_DATA_PERSON_MESSAGE_INSERT;
-        toConnPtr->send(j1.dump());
+        j1["status"] = SYNC_DATA_PERSON_MESSAGE_INSERT;
+        toConnPtr->sendJson(j1);
     } else {
         redisConn_->lpush(REDIS_KEY_OFFLINE_MSG + std::to_string(personMessage.to_id), personMessage.toJson().dump());
         auto ret = redisConn_->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(personMessage.to_id));
@@ -80,10 +80,12 @@ void MsgController::getAllPersonMessages(const cooper::HttpRequest& request, coo
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto pms = sqlConn_->query<PersonMessage>("from_id = ? or to_id = ?", userId, userId);
+    auto pms =
+        sqlConn_->query<PersonMessage>("from_id = " + std::to_string(userId) + " or to_id = " + std::to_string(userId));
     for (auto& pm : pms) {
         j["personMessages"].push_back(pm.toJson());
     }
+    LOG_DEBUG << "json:" << j.dump();
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
 }
 
@@ -105,5 +107,6 @@ void MsgController::getSyncPersonMessages(const cooper::HttpRequest& request, co
     if (!j.contains("personMessages")) {
         LOG_DEBUG << "没有离线消息";
     }
+    LOG_DEBUG << "json:" << j.dump();
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
 }

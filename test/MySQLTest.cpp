@@ -5,6 +5,7 @@
 #include <mysql.hpp>
 
 #include "define/IMDefine.hpp"
+#include "entity/Entity.hpp"
 
 using namespace cooper;
 using namespace ormpp;
@@ -32,10 +33,7 @@ int main() {
         LOG_ERROR << "create table user failed";
         return -1;
     }
-    std::vector<std::tuple<int>> friendIds;
-    auto friends = sqlConn->query<std::tuple<int>>("select b_id from friend where a_id = ?", 1);
-    for (const auto& item : friends) {
-        friendIds.emplace_back(std::get<0>(item));
-    }
+    auto pms = sqlConn->query<PersonMessage>("from_id = 1 or to_id = 1");
+    std::cout << pms.size() << std::endl;
     return 0;
 }

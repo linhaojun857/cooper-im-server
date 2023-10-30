@@ -96,6 +96,24 @@ void addFriendTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
     //    }
 }
 
+void addPersonMessageTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
+    for (int i = 0; i < 50; ++i) {
+        PersonMessage pm;
+        pm.id = 0;
+        if (i % 2 == 0) {
+            pm.from_id = 1;
+            pm.to_id = 2;
+        } else {
+            pm.from_id = 2;
+            pm.to_id = 1;
+        }
+        pm.message_type = 0;
+        pm.message = "这是测试消息" + std::to_string(i);
+        pm.timestamp = time(nullptr);
+        sqlConn->insert(pm);
+    }
+}
+
 int main() {
     std::shared_ptr<dbng<mysql>> sqlConn = std::make_shared<dbng<mysql>>();
     if (!sqlConn->connect(MYSQL_SERVER_IP, MYSQL_SERVER_USERNAME, MYSQL_SERVER_PASSWORD, MYSQL_SERVER_DATABASE)) {
@@ -109,7 +127,7 @@ int main() {
         LOG_ERROR << "create table user failed";
         return -1;
     }
-    addFriendTestData(sqlConn);
+    addPersonMessageTestData(sqlConn);
     //    auto ret = sqlConn->query<FriendApply>("from_id = " + std::to_string(1) + " and to_id = " + std::to_string(2)
     //    +
     //                                           " and agree = 0");
