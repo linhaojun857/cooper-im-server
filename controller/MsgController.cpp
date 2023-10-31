@@ -29,15 +29,19 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
         RETURN_ERROR("from_id与token不匹配")
     }
     std::vector<int> friendIds;
-    auto temps = sqlConn_->query<std::tuple<int>>("select b_id from friend where a_id = ?", userId);
+    auto temps = sqlConn_->query<std::tuple<int>>("select b_id from friend where a_id =" + std::to_string(userId));
     for (const auto& temp : temps) {
         friendIds.emplace_back(std::get<0>(temp));
     }
     if (std::find(friendIds.begin(), friendIds.end(), personMessage.to_id) == friendIds.end()) {
         RETURN_ERROR("对方不是你的好友")
     }
-    personMessage.timestamp = time(nullptr);
     try {
+        auto ret = sqlConn_->query<std::tuple<std::string>>(
+            "select session_id from friend where a_id = " + std::to_string(personMessage.from_id) +
+            " and b_id = " + std::to_string(personMessage.to_id));
+        personMessage.session_id = std::get<0>(ret[0]);
+        personMessage.timestamp = time(nullptr);
         sqlConn_->insert(personMessage);
         auto msg_id = sqlConn_->query<std::tuple<int>>("select LAST_INSERT_ID()")[0];
         personMessage.id = std::get<0>(msg_id);
@@ -83,8 +87,12 @@ void MsgController::getAllPersonMessages(const cooper::HttpRequest& request, coo
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto pms =
-        sqlConn_->query<PersonMessage>("from_id = " + std::to_string(userId) + " or to_id = " + std::to_string(userId));
+    auto pms = sqlConn_->query<PersonMessage>(
+        "select * "
+        "from personmessage "
+        "where session_id in (select session_id from friend where a_id = " +
+            std::to_string(userId) + ")",
+        userId);
     for (auto& pm : pms) {
         j["personMessages"].push_back(pm.toJson());
     }

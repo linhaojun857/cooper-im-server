@@ -5,6 +5,7 @@
 
 #include "define/IMDefine.hpp"
 #include "entity/Entity.hpp"
+#include "util/IMUtil.hpp"
 
 using namespace cooper;
 using namespace ormpp;
@@ -33,7 +34,7 @@ std::vector<std::string> testAvatars = {
 };
 
 std::vector<std::string> testUsernames = {
-    "13401792631", "13770093417", "14709743436", "18836736675", "16657284063", "15123016266", "18585581063",
+    "13401792631", "13486186186", "14709743436", "18836736675", "16657284063", "15123016266", "18585581063",
     "17194534287", "17392507674", "15273389032", "13923138574", "14618295534", "18885211064", "15136798595",
     "14104066626", "14546871073", "17248648783", "15680537493", "18233604867", "18883629511", "13346438448"};
 
@@ -71,10 +72,12 @@ void addUserTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
 
 void addFriendTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
     for (int i = 2; i <= 12; ++i) {
+        std::string session_id = IMUtil::generateUUid();
         Friend f{};
         f.id = 0;
         f.a_id = 1;
         f.b_id = i;
+        f.session_id = session_id;
         f.group_type = 0;
         sqlConn->insert(f);
         f.a_id = i;
@@ -82,23 +85,14 @@ void addFriendTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
         f.group_type = 0;
         sqlConn->insert(f);
     }
-    //    for (int i = 2; i <= 20; ++i) {
-    //        Friend f;
-    //        f.id = 0;
-    //        f.a_id = 2;
-    //        if (i == 2) {
-    //            f.b_id = 1;
-    //        } else {
-    //            f.b_id = i;
-    //        }
-    //        f.group_type = 0;
-    //        sqlConn->insert(f);
-    //    }
 }
 
 void addPersonMessageTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
     for (int i = 0; i < 50; ++i) {
         PersonMessage pm;
+        auto ret =
+            sqlConn->query<std::tuple<std::string>>("select session_id from friend where a_id = ? and b_id = ?", 1, 3);
+        pm.session_id = std::get<0>(ret[0]);
         pm.id = 0;
         if (i % 2 == 0) {
             pm.from_id = 1;
@@ -123,14 +117,11 @@ int main() {
     if (!sqlConn->create_datatable<User>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<Notify>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"})) {
-        LOG_ERROR << "create table user failed";
+        !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"})) {
+        LOG_ERROR << "create table failed";
         return -1;
     }
     addPersonMessageTestData(sqlConn);
-    //    auto ret = sqlConn->query<FriendApply>("from_id = " + std::to_string(1) + " and to_id = " + std::to_string(2)
-    //    +
-    //                                           " and agree = 0");
-    //    std::cout << ret.size() << std::endl;
     return 0;
 }

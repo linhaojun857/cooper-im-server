@@ -7,6 +7,7 @@
 #include "define/IMDefine.hpp"
 #include "entity/Entity.hpp"
 #include "store/IMStore.hpp"
+#include "util/IMUtil.hpp"
 #include "util/JwtUtil.hpp"
 
 UserController::UserController(std::shared_ptr<dbng<mysql>> sqlConn, std::shared_ptr<Redis> redisConn)
@@ -96,13 +97,12 @@ void UserController::getAllFriends(const HttpRequest& request, HttpResponse& res
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto friends = sqlConn_->query<User>(
-        "select user.* "
+    auto friends = sqlConn_->query<UserDTO>(
+        "select user.*, t1.session_id "
         "from (select * from friend where a_id = " +
-            std::to_string(userId) +
-            ") as t1 "
-            "left join user on t1.b_id = user.id;",
-        1);
+        std::to_string(userId) +
+        ") as t1 "
+        "left join user on t1.b_id = user.id;");
     for (auto& f : friends) {
         j["friends"].push_back(f.toJson());
     }
@@ -283,9 +283,10 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
         if (fa[0].agree != 0) {
             RETURN_RESPONSE(HTTP_ERROR_CODE, "请勿重复操作")
         }
+        std::string session_id = IMUtil::generateUUid();
         if (agree == 1) {
-            Friend friend1(0, fa[0].from_id, fa[0].to_id, 0);
-            Friend friend2(0, fa[0].to_id, fa[0].from_id, 0);
+            Friend friend1(0, fa[0].from_id, fa[0].to_id, session_id, 0);
+            Friend friend2(0, fa[0].to_id, fa[0].from_id, session_id, 0);
             sqlConn_->insert(friend1);
             sqlConn_->insert(friend2);
         }
@@ -302,6 +303,8 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
             auto user = sqlConn_->query<User>("id = " + std::to_string(fa[0].from_id));
             json j1 = user[0].toJson();
             j1["type"] = PROTOCOL_TYPE_FRIEND_ENTITY;
+            j1["status"] = SYNC_DATA_FRIEND_ENTITY_INSERT;
+            j1["session_id"] = session_id;
             IMStore::getInstance()->getTcpConnection(userId)->sendJson(j1);
         }
         if (IMStore::getInstance()->haveTcpConnection(fa[0].from_id)) {
@@ -312,6 +315,8 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
             if (fa[0].agree == 1) {
                 json j2 = IMStore::getInstance()->getOnlineUser(userId)->toJson();
                 j2["type"] = PROTOCOL_TYPE_FRIEND_ENTITY;
+                j2["status"] = SYNC_DATA_FRIEND_ENTITY_INSERT;
+                j2["session_id"] = session_id;
                 connPtr->sendJson(j2);
             }
         } else {
@@ -335,6 +340,8 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
                     redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(fa[0].from_id),
                                     syncState.toJson().dump());
                 }
+                auto j3 = IMStore::getInstance()->getOnlineUser(userId)->toJson();
+                j3["session_id"] = session_id;
                 redisConn_->lpush(REDIS_KEY_SYNC_FRIEND_ENTITY_PREFIX + std::to_string(fa[0].from_id),
                                   IMStore::getInstance()->getOnlineUser(userId)->toJson().dump());
             }
@@ -385,4 +392,5 @@ void UserController::handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, cons
         syncState.clearAllPersonMessageIds();
         redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
     }
+    redisConn_->del(REDIS_KEY_OFFLINE_MSG + std::to_string(userId));
 }

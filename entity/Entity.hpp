@@ -76,23 +76,50 @@ struct User {
 };
 REFLECTION(User, id, username, nickname, password, avatar, status, feeling)
 
+struct UserDTO {
+    int id{};
+    std::string username;
+    std::string nickname;
+    std::string password;
+    std::string avatar;
+    std::string status;
+    std::string feeling;
+    std::string session_id;
+
+    json toJson() {
+        json j;
+        j["id"] = id;
+        j["username"] = username;
+        j["nickname"] = nickname;
+        j["avatar"] = avatar;
+        j["status"] = status;
+        j["feeling"] = feeling;
+        j["session_id"] = session_id;
+        return j;
+    }
+};
+
+REFLECTION(UserDTO, id, username, nickname, password, avatar, status, feeling, session_id)
+
 struct Friend {
-    int id;
-    int a_id;
-    int b_id;
+    int id{};
+    int a_id{};
+    int b_id{};
+    std::string session_id;
     // 0: 我的好友 1: 特别关心 2: 家人 ...
-    int group_type;
+    int group_type{};
 
     Friend() = default;
 
-    Friend(int id, int a_id, int b_id, int group_type) {
+    Friend(int id, int a_id, int b_id, const std::string& session_id, int group_type) {
         this->id = id;
         this->a_id = a_id;
         this->b_id = b_id;
+        this->session_id = session_id;
         this->group_type = group_type;
     }
 };
-REFLECTION(Friend, id, a_id, b_id, group_type)
+REFLECTION(Friend, id, a_id, b_id, session_id, group_type)
 
 struct FriendApply {
     int id{};
@@ -169,6 +196,7 @@ struct PersonMessage {
     int id{};
     int from_id{};
     int to_id{};
+    std::string session_id;
     int message_type{};
     std::string message;
     std::string file_url;
@@ -176,11 +204,12 @@ struct PersonMessage {
 
     PersonMessage() = default;
 
-    PersonMessage(int from_id, int to_id, int message_type, const std::string& message, const std::string& file_url,
-                  time_t timestamp) {
+    PersonMessage(int from_id, int to_id, const std::string& session_id, int message_type, const std::string& message,
+                  const std::string& file_url, time_t timestamp) {
         this->id = 0;
         this->from_id = from_id;
         this->to_id = to_id;
+        this->session_id = session_id;
         this->message_type = message_type;
         this->message = message;
         this->file_url = file_url;
@@ -188,9 +217,9 @@ struct PersonMessage {
     }
 
     static PersonMessage fromJson(const json& j) {
-        PersonMessage pm(j["from_id"].get<int>(), j["to_id"].get<int>(), j["message_type"].get<int>(),
-                         j["message"].get<std::string>(), j["file_url"].get<std::string>(),
-                         j["timestamp"].get<time_t>());
+        PersonMessage pm(j["from_id"].get<int>(), j["to_id"].get<int>(), j["session_id"].get<std::string>(),
+                         j["message_type"].get<int>(), j["message"].get<std::string>(),
+                         j["file_url"].get<std::string>(), j["timestamp"].get<time_t>());
         return pm;
     }
 
@@ -199,6 +228,7 @@ struct PersonMessage {
         j["id"] = id;
         j["from_id"] = from_id;
         j["to_id"] = to_id;
+        j["session_id"] = session_id;
         j["message_type"] = message_type;
         j["message"] = message;
         j["file_url"] = file_url;
@@ -207,10 +237,9 @@ struct PersonMessage {
     }
 };
 
-REFLECTION(PersonMessage, id, from_id, to_id, message_type, message, file_url, timestamp)
+REFLECTION(PersonMessage, id, from_id, to_id, session_id, message_type, message, file_url, timestamp)
 
 struct SyncState {
-    int id{};
     int user_id{};
     int friend_sync_state{};
     int person_message_sync_state{};
@@ -264,7 +293,6 @@ struct SyncState {
 
     json toJson() {
         json j;
-        j["id"] = id;
         j["user_id"] = user_id;
         j["friend_sync_state"] = friend_sync_state;
         j["person_message_sync_state"] = person_message_sync_state;

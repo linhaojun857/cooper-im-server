@@ -23,10 +23,13 @@ add_library(cooper-im-server-lib
         store/IMStore.cpp
         store/IMStore.hpp
         # util
+        util/IMUtil.hpp
+        util/IMUtil.cpp
         util/JwtUtil.cpp
         util/JwtUtil.hpp)
 target_link_libraries(cooper-im-server-lib PUBLIC cooper)
 target_link_libraries(cooper-im-server-lib PUBLIC jwt-cpp::jwt-cpp)
+target_link_libraries(cooper-im-server-lib PUBLIC uuid)
 target_include_directories(cooper-im-server-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 find_path(HIREDIS_HEADER hiredis)
