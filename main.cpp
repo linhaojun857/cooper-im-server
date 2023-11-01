@@ -1,5 +1,6 @@
 #include <sw/redis++/redis++.h>
 
+#include <connection_pool.hpp>
 #include <cooper/net/AppTcpServer.hpp>
 #include <cooper/net/HttpServer.hpp>
 #include <cooper/util/AsyncLogWriter.hpp>
@@ -33,11 +34,11 @@ int main() {
     Logger::setLogLevel(Logger::kTrace);
     Logger::setOutputFunction(std::bind(&AsyncLogWriter::write, &writer, _1, _2),
                               std::bind(&AsyncLogWriter::flushAll, &writer));
-    std::shared_ptr<dbng<mysql>> sqlConn = std::make_shared<dbng<mysql>>();
-    if (!sqlConn->connect(MYSQL_SERVER_IP, MYSQL_SERVER_USERNAME, MYSQL_SERVER_PASSWORD, MYSQL_SERVER_DATABASE)) {
-        LOG_ERROR << "connect mysql failed";
-        return -1;
-    }
+    connection_pool<dbng<mysql>>::instance().init(MYSQL_CONNECTION_POOL_SIZE, MYSQL_SERVER_IP, MYSQL_SERVER_USERNAME,
+                                                  MYSQL_SERVER_PASSWORD, MYSQL_SERVER_DATABASE, MYSQL_SERVER_TIMEOUT,
+                                                  MYSQL_SERVER_PORT);
+    auto sqlConnPool = &connection_pool<dbng<mysql>>::instance();
+    auto sqlConn = sqlConnPool->get();
     if (!sqlConn->create_datatable<User>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<Notify>(ormpp_auto_key{"id"}) ||
@@ -46,6 +47,7 @@ int main() {
         LOG_ERROR << "create table  failed";
         return -1;
     }
+    sqlConn.reset();
     ConnectionOptions connectionOptions;
     connectionOptions.host = REDIS_SERVER_IP;
     connectionOptions.port = REDIS_SERVER_PORT;
@@ -55,8 +57,8 @@ int main() {
     connectionPoolOptions.size = REDIS_CONNECTION_POOL_SIZE;
     std::shared_ptr<Redis> redisConn = std::make_shared<Redis>(connectionOptions, connectionPoolOptions);
     IMStore::getInstance()->setRedisConn(redisConn);
-    UserController userController(sqlConn, redisConn);
-    MsgController msgController(sqlConn, redisConn);
+    UserController userController(sqlConnPool, redisConn);
+    MsgController msgController(sqlConnPool, redisConn);
     std::thread appTcpServerThread([&]() {
         AppTcpServer appTcpServer(8888, false);
         appTcpServer.setConnectionCallback([&](const TcpConnectionPtr& connPtr) {

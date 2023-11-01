@@ -3,6 +3,7 @@
 
 #include <sw/redis++/redis++.h>
 
+#include <connection_pool.hpp>
 #include <cooper/net/Http.hpp>
 #include <dbng.hpp>
 #include <mysql.hpp>
@@ -13,7 +14,7 @@ using namespace sw::redis;
 
 class MsgController {
 public:
-    explicit MsgController(std::shared_ptr<dbng<mysql>> mysql, std::shared_ptr<Redis> redisConn);
+    MsgController(connection_pool<dbng<mysql>>* sqlConnPool, std::shared_ptr<Redis> redisConn);
 
     void handlePersonSendMsg(const TcpConnectionPtr& connPtr, const json& params);
 
@@ -22,7 +23,7 @@ public:
     void getSyncPersonMessages(const HttpRequest& request, HttpResponse& response);
 
 private:
-    std::shared_ptr<dbng<mysql>> sqlConn_;
+    connection_pool<dbng<mysql>>* sqlConnPool_ = nullptr;
     std::shared_ptr<Redis> redisConn_;
 };
 

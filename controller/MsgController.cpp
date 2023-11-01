@@ -7,10 +7,11 @@
 #include "define/IMDefine.hpp"
 #include "entity/Entity.hpp"
 #include "store/IMStore.hpp"
+#include "util/IMUtil.hpp"
 #include "util/JwtUtil.hpp"
 
-MsgController::MsgController(std::shared_ptr<dbng<mysql>> sqlConn, std::shared_ptr<Redis> redisConn)
-    : sqlConn_(std::move(sqlConn)), redisConn_(std::move(redisConn)) {
+MsgController::MsgController(connection_pool<dbng<mysql>>* sqlConnPool, std::shared_ptr<Redis> redisConn)
+    : sqlConnPool_(sqlConnPool), redisConn_(std::move(redisConn)) {
 }
 
 void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const json& params) {
@@ -29,7 +30,8 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
         RETURN_ERROR("from_id与token不匹配")
     }
     std::vector<int> friendIds;
-    auto temps = sqlConn_->query<std::tuple<int>>("select b_id from friend where a_id =" + std::to_string(userId));
+    auto sqlConn = sqlConnPool_->get();
+    auto temps = sqlConn->query<std::tuple<int>>("select b_id from friend where a_id =" + std::to_string(userId));
     for (const auto& temp : temps) {
         friendIds.emplace_back(std::get<0>(temp));
     }
@@ -37,13 +39,13 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
         RETURN_ERROR("对方不是你的好友")
     }
     try {
-        auto ret = sqlConn_->query<std::tuple<std::string>>(
+        auto ret = sqlConn->query<std::tuple<std::string>>(
             "select session_id from friend where a_id = " + std::to_string(personMessage.from_id) +
             " and b_id = " + std::to_string(personMessage.to_id));
         personMessage.session_id = std::get<0>(ret[0]);
         personMessage.timestamp = time(nullptr);
-        sqlConn_->insert(personMessage);
-        auto msg_id = sqlConn_->query<std::tuple<int>>("select LAST_INSERT_ID()")[0];
+        sqlConn->insert(personMessage);
+        auto msg_id = sqlConn->query<std::tuple<int>>("select LAST_INSERT_ID()")[0];
         personMessage.id = std::get<0>(msg_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
@@ -87,7 +89,8 @@ void MsgController::getAllPersonMessages(const cooper::HttpRequest& request, coo
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto pms = sqlConn_->query<PersonMessage>(
+    auto sqlConn = sqlConnPool_->get();
+    auto pms = sqlConn->query<PersonMessage>(
         "select * "
         "from personmessage "
         "where session_id in (select session_id from friend where a_id = " +

@@ -2,6 +2,7 @@
 #define controller_UserController_hpp
 #include <sw/redis++/redis++.h>
 
+#include <connection_pool.hpp>
 #include <cooper/net/Http.hpp>
 #include <dbng.hpp>
 #include <mysql.hpp>
@@ -12,7 +13,7 @@ using namespace sw::redis;
 
 class UserController {
 public:
-    explicit UserController(std::shared_ptr<dbng<mysql>> sqlConn, std::shared_ptr<Redis> redisConn);
+    UserController(connection_pool<dbng<mysql>>* sqlConnPool, std::shared_ptr<Redis> redisConn);
 
     void getVfCode(const HttpRequest& request, HttpResponse& response);
 
@@ -39,7 +40,7 @@ public:
     void handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, const json& params);
 
 private:
-    std::shared_ptr<dbng<mysql>> sqlConn_;
+    connection_pool<dbng<mysql>>* sqlConnPool_ = nullptr;
     std::shared_ptr<Redis> redisConn_;
 };
 
