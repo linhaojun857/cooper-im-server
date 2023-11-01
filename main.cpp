@@ -38,16 +38,19 @@ int main() {
                                                   MYSQL_SERVER_PASSWORD, MYSQL_SERVER_DATABASE, MYSQL_SERVER_TIMEOUT,
                                                   MYSQL_SERVER_PORT);
     auto sqlConnPool = &connection_pool<dbng<mysql>>::instance();
-    auto sqlConn = sqlConnPool->get();
-    if (!sqlConn->create_datatable<User>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<Notify>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"})) {
-        LOG_ERROR << "create table  failed";
-        return -1;
+    {
+        auto sqlConn = sqlConnPool->get();
+        conn_guard guard(sqlConn);
+        if (!sqlConn->create_datatable<User>(ormpp_auto_key{"id"}) ||
+            !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"}) ||
+            !sqlConn->create_datatable<Notify>(ormpp_auto_key{"id"}) ||
+            !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"}) ||
+            !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"})) {
+            LOG_ERROR << "create table  failed";
+            return -1;
+        }
+        sqlConn.reset();
     }
-    sqlConn.reset();
     ConnectionOptions connectionOptions;
     connectionOptions.host = REDIS_SERVER_IP;
     connectionOptions.port = REDIS_SERVER_PORT;

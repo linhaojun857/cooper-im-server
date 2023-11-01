@@ -30,7 +30,7 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
         RETURN_ERROR("from_id与token不匹配")
     }
     std::vector<int> friendIds;
-    auto sqlConn = sqlConnPool_->get();
+    GET_SQL_CONN_T(sqlConn)
     auto temps = sqlConn->query<std::tuple<int>>("select b_id from friend where a_id =" + std::to_string(userId));
     for (const auto& temp : temps) {
         friendIds.emplace_back(std::get<0>(temp));
@@ -89,7 +89,7 @@ void MsgController::getAllPersonMessages(const cooper::HttpRequest& request, coo
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto sqlConn = sqlConnPool_->get();
+    GET_SQL_CONN_H(sqlConn)
     auto pms = sqlConn->query<PersonMessage>(
         "select * "
         "from personmessage "

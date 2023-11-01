@@ -28,7 +28,7 @@ void UserController::userLogin(const cooper::HttpRequest& request, cooper::HttpR
     if (!std::regex_match(username, regex)) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "请输入正确的手机号码")
     }
-    auto sqlConn = sqlConnPool_->get();
+    GET_SQL_CONN_H(sqlConn);
     std::vector<User> users = sqlConn->query<User>("username=" + username);
     if (users.empty()) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "请先注册")
@@ -54,7 +54,7 @@ void UserController::userRegister(const cooper::HttpRequest& request, cooper::Ht
     if (!std::regex_match(username, regex)) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "请输入正确的手机号码")
     }
-    auto sqlConn = sqlConnPool_->get();
+    GET_SQL_CONN_H(sqlConn)
     std::vector<User> users = sqlConn->query<User>("username=" + username);
     if (!users.empty()) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "该手机号码已注册")
@@ -99,7 +99,7 @@ void UserController::getAllFriends(const HttpRequest& request, HttpResponse& res
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto sqlConn = sqlConnPool_->get();
+    GET_SQL_CONN_H(sqlConn)
     auto friends = sqlConn->query<UserDTO>(
         "select user.*, t1.session_id "
         "from (select * from friend where a_id = " +
@@ -130,7 +130,7 @@ void UserController::getFriendsByIds(const cooper::HttpRequest& request, cooper:
     }
     sql.pop_back();
     sql += ")";
-    auto sqlConn = sqlConnPool_->get();
+    GET_SQL_CONN_H(sqlConn)
     auto friends = sqlConn->query<User>(sql);
     for (auto& f : friends) {
         j["friends"].push_back(f.toJson());
@@ -172,7 +172,7 @@ void UserController::search(const cooper::HttpRequest& request, cooper::HttpResp
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto sqlConn = sqlConnPool_->get();
+    GET_SQL_CONN_H(sqlConn)
     std::vector<std::tuple<int>> ret =
         sqlConn->query<std::tuple<int>>("select b_id from friend where a_id = " + std::to_string(userId));
     std::set<int> friendIds;
@@ -215,7 +215,7 @@ void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpR
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto sqlConn = sqlConnPool_->get();
+    GET_SQL_CONN_H(sqlConn)
     sqlConn->begin();
     try {
         auto ret1 =
@@ -276,7 +276,7 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto sqlConn = sqlConnPool_->get();
+    GET_SQL_CONN_H(sqlConn)
     sqlConn->begin();
     try {
         auto fa = sqlConn->query<FriendApply>("from_id = " + std::to_string(from_id) +

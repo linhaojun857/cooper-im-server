@@ -6,8 +6,8 @@
 #define MYSQL_SERVER_USERNAME ("root")
 #define MYSQL_SERVER_PASSWORD ("20030802")
 #define MYSQL_SERVER_DATABASE ("cooper_im")
-#define MYSQL_SERVER_TIMEOUT (5)
-#define MYSQL_CONNECTION_POOL_SIZE (3)
+#define MYSQL_SERVER_TIMEOUT (100)
+#define MYSQL_CONNECTION_POOL_SIZE (10)
 
 #define REDIS_SERVER_IP ("127.0.0.1")
 #define REDIS_SERVER_PORT (6379)
@@ -51,6 +51,22 @@
         if (!params.contains(i)) {                       \
             RETURN_RESPONSE(HTTP_ERROR_CODE, "缺少" + i) \
         }                                                \
+    }
+
+#define GET_SQL_CONN_H(sqlConn)                        \
+    auto sqlConn = sqlConnPool_->get();                \
+    conn_guard guard(sqlConn);                         \
+    if (!sqlConn) {                                    \
+        LOG_ERROR << "get sql connection failed";      \
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "服务端异常") \
+    }
+
+#define GET_SQL_CONN_T(sqlConn)                   \
+    auto sqlConn = sqlConnPool_->get();           \
+    conn_guard guard(sqlConn);                    \
+    if (!sqlConn) {                               \
+        LOG_ERROR << "get sql connection failed"; \
+        RETURN_ERROR("服务端异常")                \
     }
 
 #define PROTOCOL_TYPE_BASE (1000)
