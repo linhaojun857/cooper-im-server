@@ -213,7 +213,6 @@ REFLECTION_WITH_NAME(GroupApply, "t_group_apply", id, from_id, to_id, from_avata
 
 struct Notify {
     int id;
-    // 推送给谁
     int to_id;
     // 0: 好友申请 1: 群组申请
     int notify_type;
@@ -347,6 +346,13 @@ struct UserGroup {
     int id{};
     int user_id{};
     int group_id{};
+
+    UserGroup() = default;
+
+    UserGroup(int user_id, int group_id) {
+        this->user_id = user_id;
+        this->group_id = group_id;
+    }
 };
 
 REFLECTION_WITH_NAME(UserGroup, "t_user_group", id, user_id, group_id)
