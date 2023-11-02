@@ -376,9 +376,9 @@ void UserController::createGroup(const cooper::HttpRequest& request, cooper::Htt
     std::string desc = params["desc"].get<std::string>();
     std::string session_id = IMUtil::generateUUid();
     std::string group_num = IMUtil::generateGroupNum();
-    Group imGroup(session_id, group_num, userId, name, DEFAULT_GROUP_AVATAR, desc);
+    Group group(session_id, group_num, userId, name, DEFAULT_GROUP_AVATAR, desc);
     GET_SQL_CONN_H(sqlConn)
-    sqlConn->insert(imGroup);
+    sqlConn->insert(group);
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "创建成功")
 }
 
@@ -420,6 +420,73 @@ void UserController::searchGroup(const cooper::HttpRequest& request, cooper::Htt
         }
     }
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "搜索成功")
+}
+
+void UserController::addGroup(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "UserController::addGroup";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "token", "reason", "group_id")
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    std::string reason = params["reason"].get<std::string>();
+    int group_id = params["group_id"].get<int>();
+    GET_SQL_CONN_H(sqlConn)
+    sqlConn->begin();
+    try {
+        auto ret1 = sqlConn->query<Group>("id = " + std::to_string(group_id));
+        if (ret1.empty()) {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "群不存在")
+        }
+        auto ret2 = sqlConn->query<UserGroup>("user_id = " + std::to_string(userId) +
+                                              " and group_id = " + std::to_string(group_id));
+        if (!ret2.empty()) {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "请勿重复加入")
+        }
+        auto ret3 = sqlConn->query<GroupApply>("from_id = " + std::to_string(userId) +
+                                               " and to_id = " + std::to_string(group_id) + " and agree = 0");
+        if (!ret3.empty()) {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "请勿重复申请")
+        }
+        std::shared_ptr<User> user;
+        if (IMStore::getInstance()->isOnlineUser(userId)) {
+            user = IMStore::getInstance()->getOnlineUser(userId);
+        } else {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "用户未登录")
+        }
+        auto group = sqlConn->query<Group>("id = " + std::to_string(group_id));
+        GroupApply ga(0, userId, group_id, user->avatar, user->nickname, group[0].avatar, group[0].name, reason, 0);
+        sqlConn->insert(ga);
+        auto id = sqlConn->query<std::tuple<int>>("select LAST_INSERT_ID()");
+        Notify notify(0, userId, 1, std::get<0>(id[0]));
+        sqlConn->insert(notify);
+        auto ret4 =
+            sqlConn->query<std::tuple<int>>("select owner_id from t_group where id = " + std::to_string(group_id));
+        int ownerId = std::get<0>(ret4[0]);
+        notify.to_id = ownerId;
+        if (IMStore::getInstance()->haveTcpConnection(ownerId)) {
+            auto ownerConnPtr = IMStore::getInstance()->getTcpConnection(ownerId);
+            json toOwnerJson = ga.toJson();
+            toOwnerJson["type"] = PROTOCOL_TYPE_GROUP_APPLY_NOTIFY_P;
+            ownerConnPtr->sendJson(toOwnerJson);
+        } else {
+            json j1;
+            j1["notify_id"] = notify.id;
+            j1["notify_type"] = notify.notify_type;
+            j1["data"] = ga.toJson();
+            redisConn_->lpush(REDIS_KEY_NOTIFY_QUEUE_PREFIX + std::to_string(ownerId), j1.dump());
+        }
+        sqlConn->insert(notify);
+    } catch (std::exception& e) {
+        sqlConn->rollback();
+        LOG_ERROR << e.what();
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "添加群失败")
+    }
+    sqlConn->commit();
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "成功发送群申请")
 }
 
 void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {

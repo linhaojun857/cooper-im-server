@@ -46,7 +46,8 @@ int main() {
             !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<Group>(ormpp_auto_key{"id"}) ||
-            !sqlConn->create_datatable<UserGroup>(ormpp_auto_key{"id"})) {
+            !sqlConn->create_datatable<UserGroup>(ormpp_auto_key{"id"}) ||
+            !sqlConn->create_datatable<GroupApply>(ormpp_auto_key{"id"})) {
             LOG_ERROR << "create table failed";
             return -1;
         }
@@ -88,6 +89,8 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/user/addFriend", userController, &UserController::addFriend)
         ADD_HTTP_ENDPOINT("POST", "/user/responseFriendApply", userController, &UserController::responseFriendApply)
         ADD_HTTP_ENDPOINT("POST", "/user/createGroup", userController, &UserController::createGroup)
+        ADD_HTTP_ENDPOINT("POST", "/user/searchGroup", userController, &UserController::searchGroup)
+        ADD_HTTP_ENDPOINT("POST", "/user/addGroup", userController, &UserController::addGroup)
         ADD_HTTP_ENDPOINT("POST", "/msg/getAllPersonMessages", msgController, &MsgController::getAllPersonMessages)
         ADD_HTTP_ENDPOINT("POST", "/msg/getSyncPersonMessages", msgController, &MsgController::getSyncPersonMessages)
         httpServer.start();

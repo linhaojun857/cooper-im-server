@@ -1,3 +1,5 @@
+#include <sw/redis++/redis++.h>
+
 #include <cooper/util/Logger.hpp>
 #include <dbng.hpp>
 #include <memory>
@@ -5,10 +7,12 @@
 
 #include "define/IMDefine.hpp"
 #include "entity/Entity.hpp"
+#include "store/IMStore.hpp"
 #include "util/IMUtil.hpp"
 
 using namespace cooper;
 using namespace ormpp;
+using namespace sw::redis;
 
 std::vector<std::string> testAvatars = {
     "http://thirdqq.qlogo.cn/g?b=oidb&k=jWGicCEAEOGTsXtzplbsBSA&s=40&t=1658928554",
@@ -56,6 +60,12 @@ std::vector<std::string> testFeelings = {"每一天都是一个新的开始。",
                                          "相信自己，你能做到。",     "勇敢前行，未来在等待。",
                                          "不忙于奔波，不迷失方向。", "活出自己的精彩。"};
 
+std::vector<std::string> testGroupNames = {"Aurora博客交流群", "SpringBoot交流群", "Java交流群",  "MySQL交流群",
+                                           "Linux交流群",      "Redis交流群",      "ES甲流群",    "MyBatis交流群",
+                                           "Kafka交流群",      "RabbitMQ交流群",   "测试交流群1", "测试交流群2",
+                                           "测试交流群3",      "测试交流群4",      "测试交流群5", "测试交流群6",
+                                           "测试交流群7",      "测试交流群8",      "测试交流群9", "测试交流群10"};
+
 void addUserTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
     for (int i = 0; i < 20; ++i) {
         User user;
@@ -90,8 +100,8 @@ void addFriendTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
 void addPersonMessageTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
     for (int i = 0; i < 50; ++i) {
         PersonMessage pm;
-        auto ret =
-            sqlConn->query<std::tuple<std::string>>("select session_id from friend where a_id = ? and b_id = ?", 1, 3);
+        auto ret = sqlConn->query<std::tuple<std::string>>(
+            "select session_id from t_friend where a_id = ? and b_id = ?", 1, 3);
         pm.session_id = std::get<0>(ret[0]);
         pm.id = 0;
         if (i % 2 == 0) {
@@ -108,6 +118,24 @@ void addPersonMessageTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
     }
 }
 
+void addGroupTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
+    for (int i = 0; i < 20; ++i) {
+        Group group;
+        group.id = 0;
+        group.session_id = IMUtil::generateUUid();
+        group.group_num = IMUtil::generateGroupNum();
+        group.name = testGroupNames[i % testGroupNames.size()];
+        group.avatar = DEFAULT_GROUP_AVATAR;
+        if (i < 10) {
+            group.owner_id = 1;
+        } else {
+            group.owner_id = 2;
+        }
+        group.description = "这是测试群组-" + std::to_string(i);
+        sqlConn->insert(group);
+    }
+}
+
 int main() {
     std::shared_ptr<dbng<mysql>> sqlConn = std::make_shared<dbng<mysql>>();
     if (!sqlConn->connect(MYSQL_SERVER_IP, MYSQL_SERVER_USERNAME, MYSQL_SERVER_PASSWORD, MYSQL_SERVER_DATABASE)) {
@@ -118,10 +146,20 @@ int main() {
         !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<Notify>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"})) {
+        !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<Group>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<UserGroup>(ormpp_auto_key{"id"})) {
         LOG_ERROR << "create table failed";
         return -1;
     }
-    addPersonMessageTestData(sqlConn);
+    ConnectionOptions connectionOptions;
+    connectionOptions.host = REDIS_SERVER_IP;
+    connectionOptions.port = REDIS_SERVER_PORT;
+    connectionOptions.password = REDIS_SERVER_PASSWORD;
+    connectionOptions.db = REDIS_SERVER_DATABASE;
+    std::shared_ptr<Redis> redisConn = std::make_shared<Redis>(connectionOptions);
+    IMStore::getInstance()->setRedisConn(redisConn);
+
+    addGroupTestData(sqlConn);
     return 0;
 }

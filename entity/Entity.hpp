@@ -166,21 +166,66 @@ struct FriendApply {
 REFLECTION_WITH_NAME(FriendApply, "t_friend_apply", id, from_id, to_id, from_avatar, from_nickname, to_avatar,
                      to_nickname, agree)
 
+struct GroupApply {
+    int id{};
+    int from_id{};
+    int to_id{};
+    std::string from_avatar;
+    std::string from_nickname;
+    std::string to_avatar;
+    std::string to_name;
+    std::string reason;
+    // 0: 待处理 1: 通过申请 2: 拒绝申请
+    int agree{};
+
+    GroupApply() = default;
+
+    GroupApply(int id, int from_id, int to_id, const std::string& from_avatar, const std::string& from_nickname,
+               const std::string& to_avatar, const std::string& to_name, const std::string& reason, int agree) {
+        this->id = id;
+        this->from_id = from_id;
+        this->to_id = to_id;
+        this->from_avatar = from_avatar;
+        this->from_nickname = from_nickname;
+        this->to_avatar = to_avatar;
+        this->to_name = to_name;
+        this->reason = reason;
+        this->agree = agree;
+    }
+
+    json toJson() {
+        json j;
+        j["id"] = id;
+        j["from_id"] = from_id;
+        j["to_id"] = to_id;
+        j["from_avatar"] = from_avatar;
+        j["from_nickname"] = from_nickname;
+        j["to_avatar"] = to_avatar;
+        j["to_name"] = to_name;
+        j["reason"] = reason;
+        j["agree"] = agree;
+        return j;
+    }
+};
+
+REFLECTION_WITH_NAME(GroupApply, "t_group_apply", id, from_id, to_id, from_avatar, from_nickname, to_avatar, to_name,
+                     agree)
+
 struct Notify {
     int id;
     // 推送给谁
     int to_id;
-    // 0: 好友申请...
+    // 0: 好友申请 1: 群组申请
     int notify_type;
-    int fa_id;
+    int apply_id;
 
     Notify() = default;
 
-    Notify(int id, int to_id, int type, int fa_id) {
+    Notify(int id, int to_id, int type, int apply_id) {
         this->id = id;
         this->to_id = to_id;
         this->notify_type = type;
-        this->fa_id = fa_id;
+        this->apply_id = apply_id;
     }
 
     json toJson() {
@@ -188,11 +233,11 @@ struct Notify {
         j["id"] = id;
         j["to_id"] = to_id;
         j["notify_type"] = notify_type;
-        j["fa_id"] = fa_id;
+        j["apply_id"] = apply_id;
         return j;
     }
 };
-REFLECTION_WITH_NAME(Notify, "t_notify", id, to_id, notify_type, fa_id)
+REFLECTION_WITH_NAME(Notify, "t_notify", id, to_id, notify_type, apply_id)
 
 struct PersonMessage {
     int id{};
@@ -250,6 +295,7 @@ struct Group {
     std::string name;
     std::string avatar;
     std::string description;
+    int member_count{};
 
     Group() = default;
 
@@ -263,9 +309,21 @@ struct Group {
         this->description = description;
     }
 
+    Group(const std::string& session_id, const std::string& group_num, int owner_id, const std::string& name,
+          const std::string& avatar, const std::string& description, int member_count) {
+        this->session_id = session_id;
+        this->group_num = group_num;
+        this->owner_id = owner_id;
+        this->name = name;
+        this->avatar = avatar;
+        this->description = description;
+        this->member_count = member_count;
+    }
+
     static Group fromJson(json j) {
         Group group(j["session_id"].get<std::string>(), j["group_num"].get<std::string>(), j["owner_id"].get<int>(),
-                    j["name"].get<std::string>(), j["avatar"].get<std::string>(), j["desc"].get<std::string>());
+                    j["name"].get<std::string>(), j["avatar"].get<std::string>(), j["desc"].get<std::string>(),
+                    j["member_count"].get<int>());
         return group;
     }
 
@@ -278,11 +336,12 @@ struct Group {
         j["name"] = name;
         j["avatar"] = avatar;
         j["description"] = description;
+        j["member_count"] = member_count;
         return j;
     }
 };
 
-REFLECTION_WITH_NAME(Group, "t_group", id, session_id, group_num, owner_id, name, avatar, description)
+REFLECTION_WITH_NAME(Group, "t_group", id, session_id, group_num, owner_id, name, avatar, description, member_count)
 
 struct UserGroup {
     int id{};
