@@ -489,6 +489,10 @@ void UserController::addGroup(const cooper::HttpRequest& request, cooper::HttpRe
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "成功发送群申请")
 }
 
+void UserController::responseGroupApply(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+
+}
+
 void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {
     LOG_DEBUG << "UserController::handleAuthMsg";
     void(this);

@@ -91,6 +91,7 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/user/createGroup", userController, &UserController::createGroup)
         ADD_HTTP_ENDPOINT("POST", "/user/searchGroup", userController, &UserController::searchGroup)
         ADD_HTTP_ENDPOINT("POST", "/user/addGroup", userController, &UserController::addGroup)
+        ADD_HTTP_ENDPOINT("POST", "/user/responseGroupApply", userController, &UserController::responseGroupApply)
         ADD_HTTP_ENDPOINT("POST", "/msg/getAllPersonMessages", msgController, &MsgController::getAllPersonMessages)
         ADD_HTTP_ENDPOINT("POST", "/msg/getSyncPersonMessages", msgController, &MsgController::getSyncPersonMessages)
         httpServer.start();

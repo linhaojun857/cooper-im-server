@@ -41,6 +41,8 @@ public:
 
     void addGroup(const HttpRequest& request, HttpResponse& response);
 
+    void responseGroupApply(const HttpRequest& request, HttpResponse& response);
+
     void handleAuthMsg(const TcpConnectionPtr& connPtr, const json& params);
 
     void handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, const json& params);
