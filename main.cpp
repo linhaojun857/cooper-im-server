@@ -39,17 +39,17 @@ int main() {
                                                   MYSQL_SERVER_PORT);
     auto sqlConnPool = &connection_pool<dbng<mysql>>::instance();
     {
-        auto sqlConn = sqlConnPool->get();
-        conn_guard guard(sqlConn);
+        GET_SQL_CONN(sqlConn, sqlConnPool)
         if (!sqlConn->create_datatable<User>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<Friend>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<Notify>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"}) ||
-            !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"})) {
-            LOG_ERROR << "create table  failed";
+            !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"}) ||
+            !sqlConn->create_datatable<Group>(ormpp_auto_key{"id"}) ||
+            !sqlConn->create_datatable<UserGroup>(ormpp_auto_key{"id"})) {
+            LOG_ERROR << "create table failed";
             return -1;
         }
-        sqlConn.reset();
     }
     ConnectionOptions connectionOptions;
     connectionOptions.host = REDIS_SERVER_IP;
@@ -84,9 +84,10 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/user/getSyncFriends", userController, &UserController::getSyncFriends)
         ADD_HTTP_ENDPOINT("POST", "/user/getSyncState", userController, &UserController::getSyncState)
         ADD_HTTP_ENDPOINT("POST", "/user/getVFCode", userController, &UserController::getVfCode)
-        ADD_HTTP_ENDPOINT("POST", "/user/search", userController, &UserController::search)
+        ADD_HTTP_ENDPOINT("POST", "/user/searchFriend", userController, &UserController::searchFriend)
         ADD_HTTP_ENDPOINT("POST", "/user/addFriend", userController, &UserController::addFriend)
         ADD_HTTP_ENDPOINT("POST", "/user/responseFriendApply", userController, &UserController::responseFriendApply)
+        ADD_HTTP_ENDPOINT("POST", "/user/createGroup", userController, &UserController::createGroup)
         ADD_HTTP_ENDPOINT("POST", "/msg/getAllPersonMessages", msgController, &MsgController::getAllPersonMessages)
         ADD_HTTP_ENDPOINT("POST", "/msg/getSyncPersonMessages", msgController, &MsgController::getSyncPersonMessages)
         httpServer.start();

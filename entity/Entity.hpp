@@ -74,7 +74,7 @@ struct User {
         return j;
     }
 };
-REFLECTION(User, id, username, nickname, password, avatar, status, feeling)
+REFLECTION_WITH_NAME(User, "t_user", id, username, nickname, password, avatar, status, feeling)
 
 struct UserDTO {
     int id{};
@@ -119,7 +119,7 @@ struct Friend {
         this->group_type = group_type;
     }
 };
-REFLECTION(Friend, id, a_id, b_id, session_id, group_type)
+REFLECTION_WITH_NAME(Friend, "t_friend", id, a_id, b_id, session_id, group_type)
 
 struct FriendApply {
     int id{};
@@ -162,7 +162,9 @@ struct FriendApply {
         return j;
     }
 };
-REFLECTION(FriendApply, id, from_id, to_id, from_avatar, from_nickname, to_avatar, to_nickname, agree)
+
+REFLECTION_WITH_NAME(FriendApply, "t_friend_apply", id, from_id, to_id, from_avatar, from_nickname, to_avatar,
+                     to_nickname, agree)
 
 struct Notify {
     int id;
@@ -190,7 +192,7 @@ struct Notify {
         return j;
     }
 };
-REFLECTION(Notify, id, to_id, notify_type, fa_id)
+REFLECTION_WITH_NAME(Notify, "t_notify", id, to_id, notify_type, fa_id)
 
 struct PersonMessage {
     int id{};
@@ -237,7 +239,58 @@ struct PersonMessage {
     }
 };
 
-REFLECTION(PersonMessage, id, from_id, to_id, session_id, message_type, message, file_url, timestamp)
+REFLECTION_WITH_NAME(PersonMessage, "t_person_message", id, from_id, to_id, session_id, message_type, message, file_url,
+                     timestamp)
+
+struct Group {
+    int id{};
+    std::string session_id;
+    std::string group_num;
+    int owner_id{};
+    std::string name;
+    std::string avatar;
+    std::string description;
+
+    Group() = default;
+
+    Group(const std::string& session_id, const std::string& group_num, int owner_id, const std::string& name,
+          const std::string& avatar, const std::string& description) {
+        this->session_id = session_id;
+        this->group_num = group_num;
+        this->owner_id = owner_id;
+        this->name = name;
+        this->avatar = avatar;
+        this->description = description;
+    }
+
+    static Group fromJson(json j) {
+        Group group(j["session_id"].get<std::string>(), j["group_num"].get<std::string>(), j["owner_id"].get<int>(),
+                    j["name"].get<std::string>(), j["avatar"].get<std::string>(), j["desc"].get<std::string>());
+        return group;
+    }
+
+    json toJson() {
+        json j;
+        j["id"] = id;
+        j["session_id"] = session_id;
+        j["group_num"] = group_num;
+        j["owner_id"] = owner_id;
+        j["name"] = name;
+        j["avatar"] = avatar;
+        j["description"] = description;
+        return j;
+    }
+};
+
+REFLECTION_WITH_NAME(Group, "t_group", id, session_id, group_num, owner_id, name, avatar, description)
+
+struct UserGroup {
+    int id{};
+    int user_id{};
+    int group_id{};
+};
+
+REFLECTION_WITH_NAME(UserGroup, "t_user_group", id, user_id, group_id)
 
 struct SyncState {
     int user_id{};
@@ -301,7 +354,5 @@ struct SyncState {
         return j;
     }
 };
-
-// REFLECTION(SyncState, id, user_id, friend_sync_state, friendIds)
 
 #endif

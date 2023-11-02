@@ -101,11 +101,11 @@ void UserController::getAllFriends(const HttpRequest& request, HttpResponse& res
     }
     GET_SQL_CONN_H(sqlConn)
     auto friends = sqlConn->query<UserDTO>(
-        "select user.*, t1.session_id "
-        "from (select * from friend where a_id = " +
+        "select t_user.*, t1.session_id "
+        "from (select * from t_friend where a_id = " +
         std::to_string(userId) +
         ") as t1 "
-        "left join user on t1.b_id = user.id;");
+        "left join t_user on t1.b_id = t_user.id;");
     for (auto& f : friends) {
         j["friends"].push_back(f.toJson());
     }
@@ -124,7 +124,7 @@ void UserController::getFriendsByIds(const cooper::HttpRequest& request, cooper:
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
     auto friendIds = params["friendIds"].get<std::vector<int>>();
-    std::string sql = "select * from user where id in (";
+    std::string sql = "select * from t_user where id in (";
     for (auto& id : friendIds) {
         sql += std::to_string(id) + ",";
     }
@@ -161,20 +161,19 @@ void UserController::getSyncFriends(const cooper::HttpRequest& request, cooper::
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取同步好友成功")
 }
 
-void UserController::search(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
-    LOG_DEBUG << "UserController::search";
+void UserController::searchFriend(const HttpRequest& request, HttpResponse& response) {
+    LOG_DEBUG << "UserController::searchFriend";
     json j;
     auto params = json::parse(request.body_);
-    HTTP_CHECK_PARAMS(params, "keyword", "token")
-    auto keyword = params["keyword"].get<std::string>();
+    HTTP_CHECK_PARAMS(params, "token", "keyword")
     std::string token = params["token"].get<std::string>();
     int userId = JwtUtil::parseToken(token);
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
+    auto keyword = params["keyword"].get<std::string>();
     GET_SQL_CONN_H(sqlConn)
-    std::vector<std::tuple<int>> ret =
-        sqlConn->query<std::tuple<int>>("select b_id from friend where a_id = " + std::to_string(userId));
+    auto ret = sqlConn->query<std::tuple<int>>("select b_id from t_friend where a_id = " + std::to_string(userId));
     std::set<int> friendIds;
     for (auto& item : ret) {
         friendIds.insert(std::get<0>(item));
@@ -207,14 +206,14 @@ void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpR
     LOG_DEBUG << "UserController::addFriend";
     auto params = json::parse(request.body_);
     json j;
-    HTTP_CHECK_PARAMS(params, "peerId", "reason", "token")
-    int peerId = params["peerId"].get<int>();
-    std::string reason = params["reason"].get<std::string>();
+    HTTP_CHECK_PARAMS(params, "token", "peerId", "reason")
     std::string token = params["token"].get<std::string>();
     int userId = JwtUtil::parseToken(token);
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
+    int peerId = params["peerId"].get<int>();
+    std::string reason = params["reason"].get<std::string>();
     GET_SQL_CONN_H(sqlConn)
     sqlConn->begin();
     try {
@@ -268,14 +267,14 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
     LOG_DEBUG << "UserController::responseFriendApply";
     auto params = json::parse(request.body_);
     json j;
-    HTTP_CHECK_PARAMS(params, "from_id", "agree", "token")
-    int from_id = params["from_id"].get<int>();
-    int agree = params["agree"].get<int>();
+    HTTP_CHECK_PARAMS(params, "token", "from_id", "agree")
     std::string token = params["token"].get<std::string>();
     int userId = JwtUtil::parseToken(token);
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
+    int from_id = params["from_id"].get<int>();
+    int agree = params["agree"].get<int>();
     GET_SQL_CONN_H(sqlConn)
     sqlConn->begin();
     try {
@@ -361,6 +360,66 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
     }
     sqlConn->commit();
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "回应FriendApply成功")
+}
+
+void UserController::createGroup(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "UserController::createGroup";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "token", "name", "desc")
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    std::string name = params["name"].get<std::string>();
+    std::string desc = params["desc"].get<std::string>();
+    std::string session_id = IMUtil::generateUUid();
+    std::string group_num = IMUtil::generateGroupNum();
+    Group imGroup(session_id, group_num, userId, name, DEFAULT_GROUP_AVATAR, desc);
+    GET_SQL_CONN_H(sqlConn)
+    sqlConn->insert(imGroup);
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "创建成功")
+}
+
+void UserController::searchGroup(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "UserController::searchGroup";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "token", "keyword")
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    std::string keyword = params["keyword"].get<std::string>();
+    GET_SQL_CONN_H(sqlConn)
+    auto ret =
+        sqlConn->query<std::tuple<int>>("select group_id from t_user_group where user_id = " + std::to_string(userId));
+    std::set<int> groupIds;
+    for (const auto& item : ret) {
+        groupIds.insert(std::get<0>(item));
+    }
+    std::regex regex(R"(^\d{10}$)");
+    if (std::regex_match(keyword, regex)) {
+        auto groups = sqlConn->query<Group>("group_num=" + keyword);
+        if (!groups.empty()) {
+            for (auto& item : groups) {
+                if (groupIds.find(item.id) == groupIds.end()) {
+                    j["gsrs"].push_back(item.toJson());
+                }
+            }
+        }
+    }
+    auto groups = sqlConn->query<Group>("name like '%" + keyword + "%'");
+    if (!groups.empty()) {
+        for (auto& item : groups) {
+            if (groupIds.find(item.id) == groupIds.end()) {
+                j["gsrs"].push_back(item.toJson());
+            }
+        }
+    }
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "搜索成功")
 }
 
 void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {

@@ -53,6 +53,13 @@
         }                                                \
     }
 
+#define GET_SQL_CONN(sqlConn, sqlConnPool)        \
+    auto sqlConn = sqlConnPool->get();            \
+    conn_guard guard(sqlConn);                    \
+    if (!sqlConn) {                               \
+        LOG_ERROR << "get sql connection failed"; \
+    }
+
 #define GET_SQL_CONN_H(sqlConn)                        \
     auto sqlConn = sqlConnPool_->get();                \
     conn_guard guard(sqlConn);                         \
@@ -84,6 +91,7 @@
 #define REDIS_KEY_OFFLINE_MSG "offline_msg:"
 #define REDIS_KEY_SYNC_STATE_PREFIX "sync_state:"
 #define REDIS_KEY_SYNC_FRIEND_ENTITY_PREFIX "sync_friend_entity:"
+#define REDIS_KEY_CUR_YEAR_GROUP_NUM "cur_year_group_num"
 
 #define SYNC_DATA_FRIEND_ENTITY_INSERT 1
 #define SYNC_DATA_FRIEND_ENTITY_UPDATE 2
@@ -94,5 +102,7 @@
 
 #define MSG_TYPE_TEXT 0
 #define MSG_TYPE_FILE 1
+
+#define DEFAULT_GROUP_AVATAR "http://localhost:9999/img/group.png"
 
 #endif
