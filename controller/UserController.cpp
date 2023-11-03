@@ -568,6 +568,27 @@ void UserController::responseGroupApply(const cooper::HttpRequest& request, coop
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "回应GroupApply成功")
 }
 
+void UserController::getAllGroups(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "UserController::getAllGroups";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "token")
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    GET_SQL_CONN_H(sqlConn)
+    auto groups = sqlConn->query<Group>(
+        "select * from t_group where id in (select group_id from t_user_group where "
+        "user_id = " +
+        std::to_string(userId) + ")");
+    for (auto& group : groups) {
+        j["groups"].push_back(group.toJson());
+    }
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取群列表成功")
+}
+
 void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {
     LOG_DEBUG << "UserController::handleAuthMsg";
     void(this);

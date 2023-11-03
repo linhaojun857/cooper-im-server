@@ -43,6 +43,8 @@ public:
 
     void responseGroupApply(const HttpRequest& request, HttpResponse& response);
 
+    void getAllGroups(const HttpRequest& request, HttpResponse& response);
+
     void handleAuthMsg(const TcpConnectionPtr& connPtr, const json& params);
 
     void handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, const json& params);
