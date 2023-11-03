@@ -238,6 +238,7 @@ void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpR
                        reason, 0);
         sqlConn->insert(fa);
         auto id = sqlConn->query<std::tuple<int>>("select LAST_INSERT_ID()");
+        fa.id = std::get<0>(id[0]);
         Notify notify(0, userId, 0, std::get<0>(id[0]));
         sqlConn->insert(notify);
         notify.to_id = peerId;
@@ -267,19 +268,18 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
     LOG_DEBUG << "UserController::responseFriendApply";
     auto params = json::parse(request.body_);
     json j;
-    HTTP_CHECK_PARAMS(params, "token", "from_id", "agree")
+    HTTP_CHECK_PARAMS(params, "token", "apply_id", "agree")
     std::string token = params["token"].get<std::string>();
     int userId = JwtUtil::parseToken(token);
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    int from_id = params["from_id"].get<int>();
+    int apply_id = params["apply_id"].get<int>();
     int agree = params["agree"].get<int>();
     GET_SQL_CONN_H(sqlConn)
     sqlConn->begin();
     try {
-        auto fa = sqlConn->query<FriendApply>("from_id = " + std::to_string(from_id) +
-                                              " and to_id = " + std::to_string(userId) + " and agree = 0");
+        auto fa = sqlConn->query<FriendApply>("id = " + std::to_string(apply_id));
         if (fa.empty()) {
             RETURN_RESPONSE(HTTP_ERROR_CODE, "没有对应的好友申请")
         }
@@ -457,9 +457,13 @@ void UserController::addGroup(const cooper::HttpRequest& request, cooper::HttpRe
         if (!ret2.empty()) {
             RETURN_RESPONSE(HTTP_ERROR_CODE, "请勿重复加入")
         }
-        auto ret3 = sqlConn->query<GroupApply>("from_id = " + std::to_string(userId) +
-                                               " and to_id = " + std::to_string(group_id) + " and agree = 0");
-        if (!ret3.empty()) {
+        auto ret3 =
+            sqlConn->query<std::tuple<int>>("select owner_id from t_group where id = " + std::to_string(group_id));
+        int ownerId = std::get<0>(ret3[0]);
+        auto ret4 = sqlConn->query<GroupApply>("from_id = " + std::to_string(userId) +
+                                               " and to_id = " + std::to_string(ownerId) +
+                                               " and group_id = " + std::to_string(group_id) + " and agree = 0");
+        if (!ret4.empty()) {
             RETURN_RESPONSE(HTTP_ERROR_CODE, "请勿重复申请")
         }
         std::shared_ptr<User> user;
@@ -468,9 +472,6 @@ void UserController::addGroup(const cooper::HttpRequest& request, cooper::HttpRe
         } else {
             RETURN_RESPONSE(HTTP_ERROR_CODE, "用户未登录")
         }
-        auto ret4 =
-            sqlConn->query<std::tuple<int>>("select owner_id from t_group where id = " + std::to_string(group_id));
-        int ownerId = std::get<0>(ret4[0]);
         if (userId == ownerId) {
             RETURN_RESPONSE(HTTP_ERROR_CODE, "你已在群内")
         }
@@ -479,6 +480,7 @@ void UserController::addGroup(const cooper::HttpRequest& request, cooper::HttpRe
                       reason, 0);
         sqlConn->insert(ga);
         auto id = sqlConn->query<std::tuple<int>>("select LAST_INSERT_ID()");
+        ga.id = std::get<0>(id[0]);
         Notify notify(0, userId, 1, std::get<0>(id[0]));
         sqlConn->insert(notify);
         notify.to_id = ownerId;
@@ -508,19 +510,18 @@ void UserController::responseGroupApply(const cooper::HttpRequest& request, coop
     LOG_DEBUG << "UserController::responseGroupApply";
     auto params = json::parse(request.body_);
     json j;
-    HTTP_CHECK_PARAMS(params, "token", "from_id", "agree")
+    HTTP_CHECK_PARAMS(params, "token", "apply_id", "agree")
     std::string token = params["token"].get<std::string>();
     int userId = JwtUtil::parseToken(token);
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    int from_id = params["from_id"].get<int>();
+    int apply_id = params["apply_id"].get<int>();
     int agree = params["agree"].get<int>();
     GET_SQL_CONN_H(sqlConn)
     sqlConn->begin();
     try {
-        auto ga = sqlConn->query<GroupApply>("from_id = " + std::to_string(from_id) +
-                                             " and to_id = " + std::to_string(userId) + " and agree = 0");
+        auto ga = sqlConn->query<GroupApply>("id = " + std::to_string(apply_id));
         if (ga.empty()) {
             RETURN_RESPONSE(HTTP_ERROR_CODE, "没有对应的群申请")
         }
@@ -531,7 +532,7 @@ void UserController::responseGroupApply(const cooper::HttpRequest& request, coop
             RETURN_RESPONSE(HTTP_ERROR_CODE, "请勿重复操作")
         }
         if (agree == 1) {
-            UserGroup userGroup(userId, ga[0].group_id);
+            UserGroup userGroup(ga[0].from_id, ga[0].group_id);
             sqlConn->insert(userGroup);
         }
         ga[0].agree = agree;
@@ -564,6 +565,7 @@ void UserController::responseGroupApply(const cooper::HttpRequest& request, coop
         RETURN_RESPONSE(HTTP_ERROR_CODE, "回应GroupApply失败")
     }
     sqlConn->commit();
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "回应GroupApply成功")
 }
 
 void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {
