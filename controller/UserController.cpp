@@ -28,7 +28,7 @@ void UserController::userLogin(const cooper::HttpRequest& request, cooper::HttpR
     if (!std::regex_match(username, regex)) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "请输入正确的手机号码")
     }
-    GET_SQL_CONN_H(sqlConn);
+    GET_SQL_CONN_H(sqlConn)
     std::vector<User> users = sqlConn->query<User>("username=" + username);
     if (users.empty()) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "请先注册")
@@ -241,6 +241,7 @@ void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpR
         Notify notify(0, userId, 0, std::get<0>(id[0]));
         sqlConn->insert(notify);
         notify.to_id = peerId;
+        sqlConn->insert(notify);
         if (IMStore::getInstance()->haveTcpConnection(peerId)) {
             auto peerConnPtr = IMStore::getInstance()->getTcpConnection(peerId);
             json toPeerJson = fa.toJson();
@@ -253,7 +254,6 @@ void UserController::addFriend(const cooper::HttpRequest& request, cooper::HttpR
             j1["data"] = fa.toJson();
             redisConn_->lpush(REDIS_KEY_NOTIFY_QUEUE_PREFIX + std::to_string(peerId), j1.dump());
         }
-        sqlConn->insert(notify);
     } catch (std::exception& e) {
         sqlConn->rollback();
         LOG_ERROR << e.what();
@@ -301,6 +301,7 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
         Notify notify(0, userId, 0, fa[0].id);
         sqlConn->insert(notify);
         notify.to_id = fa[0].from_id;
+        sqlConn->insert(notify);
         if (!IMStore::getInstance()->haveTcpConnection(userId)) {
             sqlConn->rollback();
             RETURN_RESPONSE(HTTP_ERROR_CODE, "用户未登录")
@@ -352,7 +353,6 @@ void UserController::responseFriendApply(const cooper::HttpRequest& request, coo
                                   IMStore::getInstance()->getOnlineUser(userId)->toJson().dump());
             }
         }
-        sqlConn->insert(notify);
     } catch (std::exception& e) {
         sqlConn->rollback();
         LOG_ERROR << e.what();
@@ -378,7 +378,18 @@ void UserController::createGroup(const cooper::HttpRequest& request, cooper::Htt
     std::string group_num = IMUtil::generateGroupNum();
     Group group(session_id, group_num, userId, name, DEFAULT_GROUP_AVATAR, desc);
     GET_SQL_CONN_H(sqlConn)
-    sqlConn->insert(group);
+    sqlConn->begin();
+    try {
+        sqlConn->insert(group);
+        auto id = sqlConn->query<std::tuple<int>>("select LAST_INSERT_ID()");
+        UserGroup userGroup(userId, std::get<0>(id[0]));
+        sqlConn->insert(userGroup);
+    } catch (const std::exception& e) {
+        sqlConn->rollback();
+        LOG_ERROR << e.what();
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "创建失败")
+    }
+    sqlConn->commit();
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "创建成功")
 }
 
@@ -457,16 +468,21 @@ void UserController::addGroup(const cooper::HttpRequest& request, cooper::HttpRe
         } else {
             RETURN_RESPONSE(HTTP_ERROR_CODE, "用户未登录")
         }
+        auto ret4 =
+            sqlConn->query<std::tuple<int>>("select owner_id from t_group where id = " + std::to_string(group_id));
+        int ownerId = std::get<0>(ret4[0]);
+        if (userId == ownerId) {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "你已在群内")
+        }
         auto group = sqlConn->query<Group>("id = " + std::to_string(group_id));
-        GroupApply ga(0, userId, group_id, user->avatar, user->nickname, group[0].avatar, group[0].name, reason, 0);
+        GroupApply ga(0, userId, ownerId, group_id, user->avatar, user->nickname, group[0].avatar, group[0].name,
+                      reason, 0);
         sqlConn->insert(ga);
         auto id = sqlConn->query<std::tuple<int>>("select LAST_INSERT_ID()");
         Notify notify(0, userId, 1, std::get<0>(id[0]));
         sqlConn->insert(notify);
-        auto ret4 =
-            sqlConn->query<std::tuple<int>>("select owner_id from t_group where id = " + std::to_string(group_id));
-        int ownerId = std::get<0>(ret4[0]);
         notify.to_id = ownerId;
+        sqlConn->insert(notify);
         if (IMStore::getInstance()->haveTcpConnection(ownerId)) {
             auto ownerConnPtr = IMStore::getInstance()->getTcpConnection(ownerId);
             json toOwnerJson = ga.toJson();
@@ -479,7 +495,6 @@ void UserController::addGroup(const cooper::HttpRequest& request, cooper::HttpRe
             j1["data"] = ga.toJson();
             redisConn_->lpush(REDIS_KEY_NOTIFY_QUEUE_PREFIX + std::to_string(ownerId), j1.dump());
         }
-        sqlConn->insert(notify);
     } catch (std::exception& e) {
         sqlConn->rollback();
         LOG_ERROR << e.what();
@@ -490,7 +505,65 @@ void UserController::addGroup(const cooper::HttpRequest& request, cooper::HttpRe
 }
 
 void UserController::responseGroupApply(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
-
+    LOG_DEBUG << "UserController::responseGroupApply";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "token", "from_id", "agree")
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    int from_id = params["from_id"].get<int>();
+    int agree = params["agree"].get<int>();
+    GET_SQL_CONN_H(sqlConn)
+    sqlConn->begin();
+    try {
+        auto ga = sqlConn->query<GroupApply>("from_id = " + std::to_string(from_id) +
+                                             " and to_id = " + std::to_string(userId) + " and agree = 0");
+        if (ga.empty()) {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "没有对应的群申请")
+        }
+        if (ga[0].to_id != userId) {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+        }
+        if (ga[0].agree != 0) {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "请勿重复操作")
+        }
+        if (agree == 1) {
+            UserGroup userGroup(userId, ga[0].group_id);
+            sqlConn->insert(userGroup);
+        }
+        ga[0].agree = agree;
+        sqlConn->update(ga[0]);
+        Notify notify(0, userId, 1, ga[0].id);
+        sqlConn->insert(notify);
+        notify.to_id = ga[0].from_id;
+        sqlConn->insert(notify);
+        if (IMStore::getInstance()->haveTcpConnection(ga[0].from_id)) {
+            auto connPtr = IMStore::getInstance()->getTcpConnection(ga[0].from_id);
+            json toUserJson = ga[0].toJson();
+            toUserJson["type"] = PROTOCOL_TYPE_GROUP_APPLY_NOTIFY_I;
+            connPtr->sendJson(toUserJson);
+            if (ga[0].agree == 1) {
+                auto group = sqlConn->query<Group>("id = " + std::to_string(ga[0].group_id));
+                json j1 = group[0].toJson();
+                j1["type"] = PROTOCOL_TYPE_GROUP_ENTITY;
+                connPtr->sendJson(j1);
+            }
+        } else {
+            json j2;
+            j2["notify_id"] = notify.id;
+            j2["notify_type"] = notify.notify_type;
+            j2["data"] = ga[0].toJson();
+            redisConn_->lpush(REDIS_KEY_NOTIFY_QUEUE_PREFIX + std::to_string(ga[0].from_id), j2.dump());
+        }
+    } catch (const std::exception& e) {
+        sqlConn->rollback();
+        LOG_ERROR << e.what();
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "回应GroupApply失败")
+    }
+    sqlConn->commit();
 }
 
 void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {

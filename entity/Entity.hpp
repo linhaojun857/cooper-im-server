@@ -170,6 +170,7 @@ struct GroupApply {
     int id{};
     int from_id{};
     int to_id{};
+    int group_id{};
     std::string from_avatar;
     std::string from_nickname;
     std::string to_avatar;
@@ -180,11 +181,13 @@ struct GroupApply {
 
     GroupApply() = default;
 
-    GroupApply(int id, int from_id, int to_id, const std::string& from_avatar, const std::string& from_nickname,
-               const std::string& to_avatar, const std::string& to_name, const std::string& reason, int agree) {
+    GroupApply(int id, int from_id, int to_id, int group_id, const std::string& from_avatar,
+               const std::string& from_nickname, const std::string& to_avatar, const std::string& to_name,
+               const std::string& reason, int agree) {
         this->id = id;
         this->from_id = from_id;
         this->to_id = to_id;
+        this->group_id = group_id;
         this->from_avatar = from_avatar;
         this->from_nickname = from_nickname;
         this->to_avatar = to_avatar;
@@ -198,6 +201,7 @@ struct GroupApply {
         j["id"] = id;
         j["from_id"] = from_id;
         j["to_id"] = to_id;
+        j["group_id"] = group_id;
         j["from_avatar"] = from_avatar;
         j["from_nickname"] = from_nickname;
         j["to_avatar"] = to_avatar;
@@ -208,8 +212,8 @@ struct GroupApply {
     }
 };
 
-REFLECTION_WITH_NAME(GroupApply, "t_group_apply", id, from_id, to_id, from_avatar, from_nickname, to_avatar, to_name,
-                     agree)
+REFLECTION_WITH_NAME(GroupApply, "t_group_apply", id, from_id, to_id, group_id, from_avatar, from_nickname, to_avatar,
+                     to_name, agree)
 
 struct Notify {
     int id;

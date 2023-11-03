@@ -87,6 +87,7 @@
 #define PROTOCOL_TYPE_PERSON_MESSAGE_RECV (PROTOCOL_TYPE_BASE + 8)
 #define PROTOCOL_TYPE_GROUP_APPLY_NOTIFY_I (PROTOCOL_TYPE_BASE + 9)
 #define PROTOCOL_TYPE_GROUP_APPLY_NOTIFY_P (PROTOCOL_TYPE_BASE + 10)
+#define PROTOCOL_TYPE_GROUP_ENTITY (PROTOCOL_TYPE_BASE + 11)
 
 #define REDIS_KEY_ONLINE_USERS "online_users"
 #define REDIS_KEY_NOTIFY_QUEUE_PREFIX "notify_queue:"
@@ -105,6 +106,6 @@
 #define MSG_TYPE_TEXT 0
 #define MSG_TYPE_FILE 1
 
-#define DEFAULT_GROUP_AVATAR "http://localhost:9999/img/group.png"
+#define DEFAULT_GROUP_AVATAR "http://localhost:9999/static/img/group.png"
 
 #endif

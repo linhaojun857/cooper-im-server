@@ -133,6 +133,9 @@ void addGroupTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
         }
         group.description = "这是测试群组-" + std::to_string(i);
         sqlConn->insert(group);
+        auto id = sqlConn->query<std::tuple<int>>("select LAST_INSERT_ID()");
+        UserGroup userGroup(group.owner_id, std::get<0>(id[0]));
+        sqlConn->insert(userGroup);
     }
 }
 
