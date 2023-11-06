@@ -334,6 +334,68 @@ struct GroupMessage {
 
 REFLECTION_WITH_NAME(GroupMessage, "t_group_message", id, from_id, group_id, message_type, message, file_url, timestamp)
 
+struct GroupMessageDTO {
+    int id{};
+    int from_id{};
+    std::string from_nickname;
+    std::string from_avatar;
+    int group_id{};
+    int message_type{};
+    std::string message;
+    std::string file_url;
+    time_t timestamp{};
+
+    GroupMessageDTO() = default;
+
+    explicit GroupMessageDTO(const GroupMessage& gm) {
+        this->id = gm.id;
+        this->from_id = gm.from_id;
+        this->group_id = gm.group_id;
+        this->message_type = gm.message_type;
+        this->message = gm.message;
+        this->file_url = gm.file_url;
+        this->timestamp = gm.timestamp;
+    }
+
+    GroupMessageDTO(int id, int from_id, const std::string& from_nickname, const std::string& from_avatar, int group_id,
+                    int message_type, const std::string& message, const std::string& file_url, time_t timestamp) {
+        this->id = id;
+        this->from_id = from_id;
+        this->from_nickname = from_nickname;
+        this->from_avatar = from_avatar;
+        this->group_id = group_id;
+        this->message_type = message_type;
+        this->message = message;
+        this->file_url = file_url;
+        this->timestamp = timestamp;
+    }
+
+    static GroupMessageDTO fromJson(const json& j) {
+        GroupMessageDTO gm(j["id"].get<int>(), j["from_id"].get<int>(), j["from_nickname"].get<std::string>(),
+                           j["from_avatar"].get<std::string>(), j["group_id"].get<int>(), j["message_type"].get<int>(),
+                           j["message"].get<std::string>(), j["file_url"].get<std::string>(),
+                           j["timestamp"].get<time_t>());
+        return gm;
+    }
+
+    json toJson() {
+        json j;
+        j["id"] = id;
+        j["from_id"] = from_id;
+        j["from_nickname"] = from_nickname;
+        j["from_avatar"] = from_avatar;
+        j["group_id"] = group_id;
+        j["message_type"] = message_type;
+        j["message"] = message;
+        j["file_url"] = file_url;
+        j["timestamp"] = timestamp;
+        return j;
+    }
+};
+
+REFLECTION(GroupMessageDTO, id, from_id, group_id, message_type, message, file_url, timestamp, from_nickname,
+           from_avatar)
+
 struct Group {
     int id{};
     std::string session_id;

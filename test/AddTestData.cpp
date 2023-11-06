@@ -139,6 +139,29 @@ void addGroupTestData(const std::shared_ptr<dbng<mysql>>& sqlConn) {
     }
 }
 
+void addUserGroupTestData(std::shared_ptr<dbng<mysql>>& sqlConn) {
+    for (int i = 2; i <= 10; ++i) {
+        UserGroup ug(i, 1);
+        sqlConn->insert(ug);
+    }
+}
+
+void AddGroupMessageTestData(std::shared_ptr<dbng<mysql>>& sqlConn) {
+    for (int i = 1; i <= 10; ++i) {
+        for (int j = 0; j < 10; ++j) {
+            std::string message = "群组测试消息" + std::to_string(i) + "-" + std::to_string(j);
+            GroupMessage gm;
+            gm.id = 0;
+            gm.from_id = i;
+            gm.group_id = 1;
+            gm.message_type = 0;
+            gm.message = message;
+            gm.timestamp = time(nullptr);
+            sqlConn->insert(gm);
+        }
+    }
+}
+
 int main() {
     std::shared_ptr<dbng<mysql>> sqlConn = std::make_shared<dbng<mysql>>();
     if (!sqlConn->connect(MYSQL_SERVER_IP, MYSQL_SERVER_USERNAME, MYSQL_SERVER_PASSWORD, MYSQL_SERVER_DATABASE)) {
@@ -151,7 +174,9 @@ int main() {
         !sqlConn->create_datatable<FriendApply>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<Group>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<UserGroup>(ormpp_auto_key{"id"})) {
+        !sqlConn->create_datatable<UserGroup>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<GroupApply>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<GroupMessage>(ormpp_auto_key{"id"})) {
         LOG_ERROR << "create table failed";
         return -1;
     }
@@ -163,6 +188,6 @@ int main() {
     std::shared_ptr<Redis> redisConn = std::make_shared<Redis>(connectionOptions);
     IMStore::getInstance()->setRedisConn(redisConn);
 
-    addGroupTestData(sqlConn);
+    AddGroupMessageTestData(sqlConn);
     return 0;
 }

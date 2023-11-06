@@ -159,13 +159,19 @@ void MsgController::handleGroupSendMsg(const cooper::TcpConnectionPtr& connPtr, 
         LOG_ERROR << e.what();
         RETURN_ERROR("发送失败")
     }
-    auto j1 = groupMessage.toJson();
+    GroupMessageDTO gmd(groupMessage);
+    gmd.from_nickname = user->nickname;
+    gmd.from_avatar = user->avatar;
+    auto j1 = gmd.toJson();
     j1["type"] = PROTOCOL_TYPE_GROUP_MESSAGE_SEND;
     j1["status"] = SYNC_DATA_GROUP_MESSAGE_INSERT;
     connPtr->sendJson(j1);
     j1["type"] = PROTOCOL_TYPE_GROUP_MESSAGE_RECV;
     j1["status"] = SYNC_DATA_GROUP_MESSAGE_INSERT;
     for (const auto& memberId : groupMemberIds) {
+        if (memberId == userId) {
+            continue;
+        }
         if (IMStore::getInstance()->haveTcpConnection(memberId)) {
             auto toConnPtr = IMStore::getInstance()->getTcpConnection(memberId);
             toConnPtr->sendJson(j1);
@@ -198,10 +204,11 @@ void MsgController::getAllGroupMessages(const cooper::HttpRequest& request, coop
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
     GET_SQL_CONN_H(sqlConn)
-    auto gms = sqlConn->query<GroupMessage>(
-        "select * "
-        "from t_group_message "
-        "where group_id in (select group_id from t_user_group where user_id = " +
+    auto gms = sqlConn->query<GroupMessageDTO>(
+        "select a.*, b.nickname as from_nickname, b.avatar as from_avatar "
+        "from t_group_message a, t_user b "
+        "where a.from_id = b.id and a.group_id in "
+        "(select group_id from t_user_group where user_id = " +
         std::to_string(userId) + ")");
     for (auto& gm : gms) {
         j["groupMessages"].push_back(gm.toJson());
