@@ -25,12 +25,12 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
     const auto& pmJson = params["personMessage"];
     TCP_CHECK_PARAMS(pmJson, "from_id", "to_id", "message_type", "message", "file_url")
     auto personMessage = PersonMessage::fromJson(pmJson);
-    std::shared_ptr<User> user = IMStore::getInstance()->getOnlineUser(userId);
+    auto user = IMStore::getInstance()->getOnlineUser(userId);
     if (personMessage.from_id != user->id) {
         RETURN_ERROR("from_id与token不匹配")
     }
-    std::vector<int> friendIds;
     GET_SQL_CONN_T(sqlConn)
+    std::vector<int> friendIds;
     auto temps = sqlConn->query<std::tuple<int>>("select b_id from t_friend where a_id =" + std::to_string(userId));
     for (const auto& temp : temps) {
         friendIds.emplace_back(std::get<0>(temp));
@@ -40,7 +40,7 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
     }
     try {
         auto ret = sqlConn->query<std::tuple<std::string>>(
-            "select session_id from friend where a_id = " + std::to_string(personMessage.from_id) +
+            "select session_id from t_friend where a_id = " + std::to_string(personMessage.from_id) +
             " and b_id = " + std::to_string(personMessage.to_id));
         personMessage.session_id = std::get<0>(ret[0]);
         personMessage.timestamp = time(nullptr);
@@ -61,7 +61,8 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
         j1["status"] = SYNC_DATA_PERSON_MESSAGE_INSERT;
         toConnPtr->sendJson(j1);
     } else {
-        redisConn_->lpush(REDIS_KEY_OFFLINE_MSG + std::to_string(personMessage.to_id), personMessage.toJson().dump());
+        redisConn_->lpush(REDIS_KEY_PERSON_OFFLINE_MSG + std::to_string(personMessage.to_id),
+                          personMessage.toJson().dump());
         auto ret = redisConn_->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(personMessage.to_id));
         if (!ret.has_value()) {
             SyncState syncState(personMessage.to_id);
@@ -94,8 +95,7 @@ void MsgController::getAllPersonMessages(const cooper::HttpRequest& request, coo
         "select * "
         "from t_person_message "
         "where session_id in (select session_id from t_friend where a_id = " +
-            std::to_string(userId) + ")",
-        userId);
+        std::to_string(userId) + ")");
     for (auto& pm : pms) {
         j["personMessages"].push_back(pm.toJson());
     }
@@ -113,12 +113,119 @@ void MsgController::getSyncPersonMessages(const cooper::HttpRequest& request, co
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    auto ret = redisConn_->lpop(REDIS_KEY_OFFLINE_MSG + std::to_string(userId));
+    auto ret = redisConn_->lpop(REDIS_KEY_PERSON_OFFLINE_MSG + std::to_string(userId));
     while (ret.has_value()) {
         j["personMessages"].push_back(json::parse(ret.value()));
-        ret = redisConn_->lpop(REDIS_KEY_OFFLINE_MSG + std::to_string(userId));
+        ret = redisConn_->lpop(REDIS_KEY_PERSON_OFFLINE_MSG + std::to_string(userId));
     }
     if (!j.contains("personMessages")) {
+        LOG_DEBUG << "没有离线消息";
+    }
+    LOG_DEBUG << "json:" << j.dump();
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
+}
+
+void MsgController::handleGroupSendMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {
+    LOG_DEBUG << "MsgController::handleGroupSendMsg";
+    TCP_CHECK_PARAMS(params, "token", "groupMessage")
+    auto token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_ERROR("token无效")
+    }
+    const auto& gmJson = params["groupMessage"];
+    TCP_CHECK_PARAMS(gmJson, "from_id", "group_id", "message_type", "message", "file_url")
+    auto groupMessage = GroupMessage::fromJson(gmJson);
+    auto user = IMStore::getInstance()->getOnlineUser(userId);
+    if (groupMessage.from_id != user->id) {
+        RETURN_ERROR("from_id与token不匹配")
+    }
+    GET_SQL_CONN_T(sqlConn)
+    std::vector<int> groupMemberIds;
+    auto temps = sqlConn->query<std::tuple<int>>("select user_id from t_user_group where group_id =" +
+                                                 std::to_string(groupMessage.group_id));
+    for (const auto& temp : temps) {
+        groupMemberIds.emplace_back(std::get<0>(temp));
+    }
+    if (std::find(groupMemberIds.begin(), groupMemberIds.end(), groupMessage.from_id) == groupMemberIds.end()) {
+        RETURN_ERROR("你不在该群组中")
+    }
+    try {
+        groupMessage.timestamp = time(nullptr);
+        sqlConn->insert(groupMessage);
+        auto msg_id = sqlConn->query<std::tuple<int>>("select LAST_INSERT_ID()")[0];
+        groupMessage.id = std::get<0>(msg_id);
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        RETURN_ERROR("发送失败")
+    }
+    auto j1 = groupMessage.toJson();
+    j1["type"] = PROTOCOL_TYPE_GROUP_MESSAGE_SEND;
+    j1["status"] = SYNC_DATA_GROUP_MESSAGE_INSERT;
+    connPtr->sendJson(j1);
+    j1["type"] = PROTOCOL_TYPE_GROUP_MESSAGE_RECV;
+    j1["status"] = SYNC_DATA_GROUP_MESSAGE_INSERT;
+    for (const auto& memberId : groupMemberIds) {
+        if (IMStore::getInstance()->haveTcpConnection(memberId)) {
+            auto toConnPtr = IMStore::getInstance()->getTcpConnection(memberId);
+            toConnPtr->sendJson(j1);
+        } else {
+            redisConn_->lpush(REDIS_KEY_GROUP_OFFLINE_MSG + std::to_string(memberId), groupMessage.toJson().dump());
+            auto ret = redisConn_->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(memberId));
+            if (!ret.has_value()) {
+                SyncState syncState(memberId);
+                syncState.group_message_sync_state = 1;
+                syncState.addInsertedGroupMessageId(groupMessage.id);
+                redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(memberId), syncState.toJson().dump());
+            } else {
+                SyncState syncState = SyncState::fromJson(json::parse(ret.value()));
+                syncState.group_message_sync_state = 1;
+                syncState.addInsertedGroupMessageId(groupMessage.id);
+                redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(memberId), syncState.toJson().dump());
+            }
+        }
+    }
+}
+
+void MsgController::getAllGroupMessages(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "MsgController::getAllGroupMessages";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "token");
+    auto token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    GET_SQL_CONN_H(sqlConn)
+    auto gms = sqlConn->query<GroupMessage>(
+        "select * "
+        "from t_group_message "
+        "where group_id in (select group_id from t_user_group where user_id = " +
+        std::to_string(userId) + ")");
+    for (auto& gm : gms) {
+        j["groupMessages"].push_back(gm.toJson());
+    }
+    LOG_DEBUG << "json:" << j.dump();
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
+}
+
+void MsgController::getSyncGroupMessages(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "MsgController::getSyncGroupMessages";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "token")
+    auto token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    auto ret = redisConn_->lpop(REDIS_KEY_GROUP_OFFLINE_MSG + std::to_string(userId));
+    while (ret.has_value()) {
+        j["groupMessages"].push_back(json::parse(ret.value()));
+        ret = redisConn_->lpop(REDIS_KEY_GROUP_OFFLINE_MSG + std::to_string(userId));
+    }
+    if (!j.contains("groupMessages")) {
         LOG_DEBUG << "没有离线消息";
     }
     LOG_DEBUG << "json:" << j.dump();

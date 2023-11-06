@@ -47,7 +47,8 @@ int main() {
             !sqlConn->create_datatable<PersonMessage>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<Group>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<UserGroup>(ormpp_auto_key{"id"}) ||
-            !sqlConn->create_datatable<GroupApply>(ormpp_auto_key{"id"})) {
+            !sqlConn->create_datatable<GroupApply>(ormpp_auto_key{"id"}) ||
+            !sqlConn->create_datatable<GroupMessage>(ormpp_auto_key{"id"})) {
             LOG_ERROR << "create table failed";
             return -1;
         }
@@ -73,6 +74,7 @@ int main() {
         ADD_TCP_ENDPOINT(PROTOCOL_TYPE_AUTH_MSG, userController, &UserController::handleAuthMsg)
         ADD_TCP_ENDPOINT(PROTOCOL_TYPE_SYNC_COMPLETE_MESSAGE, userController, &UserController::handleSyncCompleteMsg)
         ADD_TCP_ENDPOINT(PROTOCOL_TYPE_PERSON_MESSAGE_SEND, msgController, &MsgController::handlePersonSendMsg)
+        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_GROUP_MESSAGE_SEND, msgController, &MsgController::handleGroupSendMsg)
         appTcpServer.start();
     });
     std::thread httpServerThread([&]() {
@@ -95,6 +97,8 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/user/getAllGroups", userController, &UserController::getAllGroups)
         ADD_HTTP_ENDPOINT("POST", "/msg/getAllPersonMessages", msgController, &MsgController::getAllPersonMessages)
         ADD_HTTP_ENDPOINT("POST", "/msg/getSyncPersonMessages", msgController, &MsgController::getSyncPersonMessages)
+        ADD_HTTP_ENDPOINT("POST", "/msg/getAllGroupMessages", msgController, &MsgController::getAllGroupMessages)
+        ADD_HTTP_ENDPOINT("POST", "/msg/getSyncGroupMessages", msgController, &MsgController::getSyncGroupMessages)
         httpServer.start();
     });
     appTcpServerThread.join();

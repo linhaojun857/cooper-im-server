@@ -290,6 +290,50 @@ struct PersonMessage {
 REFLECTION_WITH_NAME(PersonMessage, "t_person_message", id, from_id, to_id, session_id, message_type, message, file_url,
                      timestamp)
 
+struct GroupMessage {
+    int id{};
+    int from_id{};
+    int group_id{};
+    int message_type{};
+    std::string message;
+    std::string file_url;
+    time_t timestamp{};
+
+    GroupMessage() = default;
+
+    GroupMessage(int from_id, int group_id, int message_type, const std::string& message, const std::string& file_url,
+                 time_t timestamp) {
+        this->id = 0;
+        this->from_id = from_id;
+        this->group_id = group_id;
+        this->message_type = message_type;
+        this->message = message;
+        this->file_url = file_url;
+        this->timestamp = timestamp;
+    }
+
+    static GroupMessage fromJson(const json& j) {
+        GroupMessage gm(j["from_id"].get<int>(), j["group_id"].get<int>(), j["message_type"].get<int>(),
+                        j["message"].get<std::string>(), j["file_url"].get<std::string>(),
+                        j["timestamp"].get<time_t>());
+        return gm;
+    }
+
+    json toJson() {
+        json j;
+        j["id"] = id;
+        j["from_id"] = from_id;
+        j["group_id"] = group_id;
+        j["message_type"] = message_type;
+        j["message"] = message;
+        j["file_url"] = file_url;
+        j["timestamp"] = timestamp;
+        return j;
+    }
+};
+
+REFLECTION_WITH_NAME(GroupMessage, "t_group_message", id, from_id, group_id, message_type, message, file_url, timestamp)
+
 struct Group {
     int id{};
     std::string session_id;
@@ -365,8 +409,10 @@ struct SyncState {
     int user_id{};
     int friend_sync_state{};
     int person_message_sync_state{};
+    int group_message_sync_state{};
     std::vector<std::pair<int, int>> friendIds;
     std::vector<std::pair<int, int>> personMessageIds;
+    std::vector<std::pair<int, int>> groupMessageIds;
 
     SyncState() = default;
 
@@ -374,6 +420,7 @@ struct SyncState {
         this->user_id = userId;
         friend_sync_state = 0;
         person_message_sync_state = 0;
+        group_message_sync_state = 0;
     }
 
     void addInsertedFriendId(int friendId) {
@@ -396,6 +443,14 @@ struct SyncState {
         personMessageIds.emplace_back(personMessageId, SYNC_DATA_PERSON_MESSAGE_DELETE);
     }
 
+    void addInsertedGroupMessageId(int groupMessageId) {
+        groupMessageIds.emplace_back(groupMessageId, SYNC_DATA_PERSON_MESSAGE_INSERT);
+    }
+
+    void addDeletedGroupMessageId(int groupMessageId) {
+        groupMessageIds.emplace_back(groupMessageId, SYNC_DATA_PERSON_MESSAGE_DELETE);
+    }
+
     void clearAllFriendIds() {
         friendIds.clear();
     }
@@ -404,12 +459,18 @@ struct SyncState {
         personMessageIds.clear();
     }
 
+    void clearAllGroupMessageIds() {
+        groupMessageIds.clear();
+    }
+
     static SyncState fromJson(const json& j) {
         SyncState state(j["user_id"].get<int>());
         state.friend_sync_state = j["friend_sync_state"].get<int>();
         state.person_message_sync_state = j["person_message_sync_state"].get<int>();
+        state.group_message_sync_state = j["group_message_sync_state"].get<int>();
         state.friendIds = j["friendIds"].get<std::vector<std::pair<int, int>>>();
         state.personMessageIds = j["personMessageIds"].get<std::vector<std::pair<int, int>>>();
+        state.groupMessageIds = j["groupMessageIds"].get<std::vector<std::pair<int, int>>>();
         return state;
     }
 
@@ -418,8 +479,10 @@ struct SyncState {
         j["user_id"] = user_id;
         j["friend_sync_state"] = friend_sync_state;
         j["person_message_sync_state"] = person_message_sync_state;
+        j["group_message_sync_state"] = group_message_sync_state;
         j["friendIds"] = friendIds;
         j["personMessageIds"] = personMessageIds;
+        j["groupMessageIds"] = groupMessageIds;
         return j;
     }
 };

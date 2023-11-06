@@ -22,6 +22,12 @@ public:
 
     void getSyncPersonMessages(const HttpRequest& request, HttpResponse& response);
 
+    void handleGroupSendMsg(const TcpConnectionPtr& connPtr, const json& params);
+
+    void getAllGroupMessages(const HttpRequest& request, HttpResponse& response);
+
+    void getSyncGroupMessages(const HttpRequest& request, HttpResponse& response);
+
 private:
     connection_pool<dbng<mysql>>* sqlConnPool_ = nullptr;
     std::shared_ptr<Redis> redisConn_;

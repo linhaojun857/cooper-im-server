@@ -625,5 +625,5 @@ void UserController::handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, cons
         syncState.clearAllPersonMessageIds();
         redisConn_->set(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(userId), syncState.toJson().dump());
     }
-    redisConn_->del(REDIS_KEY_OFFLINE_MSG + std::to_string(userId));
+    redisConn_->del(REDIS_KEY_PERSON_OFFLINE_MSG + std::to_string(userId));
 }
