@@ -176,7 +176,7 @@ void MsgController::handleGroupSendMsg(const cooper::TcpConnectionPtr& connPtr, 
             auto toConnPtr = IMStore::getInstance()->getTcpConnection(memberId);
             toConnPtr->sendJson(j1);
         } else {
-            redisConn_->lpush(REDIS_KEY_GROUP_OFFLINE_MSG + std::to_string(memberId), groupMessage.toJson().dump());
+            redisConn_->lpush(REDIS_KEY_GROUP_OFFLINE_MSG + std::to_string(memberId), j1.dump());
             auto ret = redisConn_->get(REDIS_KEY_SYNC_STATE_PREFIX + std::to_string(memberId));
             if (!ret.has_value()) {
                 SyncState syncState(memberId);
