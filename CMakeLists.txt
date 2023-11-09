@@ -32,7 +32,9 @@ add_library(cooper-im-server-lib
         util/IMUtil.hpp
         util/IMUtil.cpp
         util/JwtUtil.cpp
-        util/JwtUtil.hpp)
+        util/JwtUtil.hpp
+        util/MD5.cpp
+        util/MD5.hpp)
 target_link_libraries(cooper-im-server-lib PUBLIC cooper)
 target_link_libraries(cooper-im-server-lib PUBLIC jwt-cpp::jwt-cpp)
 target_link_libraries(cooper-im-server-lib PUBLIC uuid)

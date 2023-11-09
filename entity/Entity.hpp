@@ -549,4 +549,42 @@ struct SyncState {
     }
 };
 
+struct File {
+    int id{};
+    std::string file_type;
+    std::string file_name;
+    std::string file_url;
+    long file_size{};
+    std::string file_md5;
+    int user_id{};
+    time_t timestamp{};
+
+    File() = default;
+
+    File(int id, const std::string& file_type, const std::string& file_name, const std::string& file_url,
+         long file_size, const std::string& file_md5, int user_id, time_t timestamp) {
+        this->id = id;
+        this->file_type = file_type;
+        this->file_name = file_name;
+        this->file_url = file_url;
+        this->file_size = file_size;
+        this->file_md5 = file_md5;
+        this->user_id = user_id;
+        this->timestamp = timestamp;
+    }
+
+    File(const std::string& file_type, const std::string& file_name, const std::string& file_url, long file_size,
+         const std::string& file_md5, int user_id, time_t timestamp) {
+        this->file_type = file_type;
+        this->file_name = file_name;
+        this->file_url = file_url;
+        this->file_size = file_size;
+        this->file_md5 = file_md5;
+        this->user_id = user_id;
+        this->timestamp = timestamp;
+    }
+};
+
+REFLECTION_WITH_NAME(File, "t_file", id, file_type, file_name, file_url, file_size, file_md5, user_id, timestamp)
+
 #endif

@@ -112,5 +112,7 @@
 #define MSG_TYPE_FILE 1
 
 #define DEFAULT_GROUP_AVATAR "http://localhost:9999/static/img/group.png"
+#define UPLOAD_PATH "/home/linhaojun/cpp-code/cooper-im-server/static/upload/"
+#define FILE_URL_PREFIX "http://localhost:9999/static/upload/"
 
 #endif

@@ -12,6 +12,10 @@ public:
     static int getCurrentYear();
 
     static std::string generateGroupNum();
+
+    static std::string generateRandomFileName(const std::string& fileType);
+
+    static std::string getFileType(const std::string& filename);
 };
 
 #endif

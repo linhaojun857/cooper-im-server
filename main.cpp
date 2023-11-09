@@ -51,7 +51,8 @@ int main() {
             !sqlConn->create_datatable<Group>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<UserGroup>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<GroupApply>(ormpp_auto_key{"id"}) ||
-            !sqlConn->create_datatable<GroupMessage>(ormpp_auto_key{"id"})) {
+            !sqlConn->create_datatable<GroupMessage>(ormpp_auto_key{"id"}) ||
+            !sqlConn->create_datatable<File>(ormpp_auto_key{"id"})) {
             LOG_ERROR << "create table failed";
             return -1;
         }
