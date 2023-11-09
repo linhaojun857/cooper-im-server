@@ -8,8 +8,11 @@
 #include <mysql.hpp>
 #include <regex>
 
-#include "controller//UserController.hpp"
+#include "controller/FileController.hpp"
+#include "controller/FriendController.hpp"
+#include "controller/GroupController.hpp"
 #include "controller/MsgController.hpp"
+#include "controller/UserController.hpp"
 #include "define/IMDefine.hpp"
 #include "entity/Entity.hpp"
 #include "store/IMStore.hpp"
@@ -63,7 +66,10 @@ int main() {
     std::shared_ptr<Redis> redisConn = std::make_shared<Redis>(connectionOptions, connectionPoolOptions);
     IMStore::getInstance()->setRedisConn(redisConn);
     UserController userController(sqlConnPool, redisConn);
+    FriendController friendController(sqlConnPool, redisConn);
+    GroupController groupController(sqlConnPool, redisConn);
     MsgController msgController(sqlConnPool, redisConn);
+    FileController fileController(sqlConnPool, redisConn);
     std::thread appTcpServerThread([&]() {
         AppTcpServer appTcpServer(8888, false);
         appTcpServer.setConnectionCallback([&](const TcpConnectionPtr& connPtr) {
@@ -80,25 +86,27 @@ int main() {
     std::thread httpServerThread([&]() {
         HttpServer httpServer(9999);
         ADD_HTTP_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static")
+        ADD_HTTP_ENDPOINT("POST", "/user/getVFCode", userController, &UserController::getVfCode)
         ADD_HTTP_ENDPOINT("POST", "/user/login", userController, &UserController::userLogin)
         ADD_HTTP_ENDPOINT("POST", "/user/register", userController, &UserController::userRegister)
-        ADD_HTTP_ENDPOINT("POST", "/user/getAllFriends", userController, &UserController::getAllFriends)
-        ADD_HTTP_ENDPOINT("POST", "/user/getFriendsByIds", userController, &UserController::getFriendsByIds)
-        ADD_HTTP_ENDPOINT("POST", "/user/getSyncFriends", userController, &UserController::getSyncFriends)
         ADD_HTTP_ENDPOINT("POST", "/user/getSyncState", userController, &UserController::getSyncState)
-        ADD_HTTP_ENDPOINT("POST", "/user/getVFCode", userController, &UserController::getVfCode)
-        ADD_HTTP_ENDPOINT("POST", "/user/searchFriend", userController, &UserController::searchFriend)
-        ADD_HTTP_ENDPOINT("POST", "/user/addFriend", userController, &UserController::addFriend)
-        ADD_HTTP_ENDPOINT("POST", "/user/responseFriendApply", userController, &UserController::responseFriendApply)
-        ADD_HTTP_ENDPOINT("POST", "/user/createGroup", userController, &UserController::createGroup)
-        ADD_HTTP_ENDPOINT("POST", "/user/searchGroup", userController, &UserController::searchGroup)
-        ADD_HTTP_ENDPOINT("POST", "/user/addGroup", userController, &UserController::addGroup)
-        ADD_HTTP_ENDPOINT("POST", "/user/responseGroupApply", userController, &UserController::responseGroupApply)
-        ADD_HTTP_ENDPOINT("POST", "/user/getAllGroups", userController, &UserController::getAllGroups)
+        ADD_HTTP_ENDPOINT("POST", "/friend/getAllFriends", friendController, &FriendController::getAllFriends)
+        ADD_HTTP_ENDPOINT("POST", "/friend/getFriendsByIds", friendController, &FriendController::getFriendsByIds)
+        ADD_HTTP_ENDPOINT("POST", "/friend/getSyncFriends", friendController, &FriendController::getSyncFriends)
+        ADD_HTTP_ENDPOINT("POST", "/friend/searchFriend", friendController, &FriendController::searchFriend)
+        ADD_HTTP_ENDPOINT("POST", "/friend/addFriend", friendController, &FriendController::addFriend)
+        ADD_HTTP_ENDPOINT("POST", "/friend/responseFriendApply", friendController,
+                          &FriendController::responseFriendApply)
+        ADD_HTTP_ENDPOINT("POST", "/group/createGroup", groupController, &GroupController::createGroup)
+        ADD_HTTP_ENDPOINT("POST", "/group/searchGroup", groupController, &GroupController::searchGroup)
+        ADD_HTTP_ENDPOINT("POST", "/group/addGroup", groupController, &GroupController::addGroup)
+        ADD_HTTP_ENDPOINT("POST", "/group/responseGroupApply", groupController, &GroupController::responseGroupApply)
+        ADD_HTTP_ENDPOINT("POST", "/group/getAllGroups", groupController, &GroupController::getAllGroups)
         ADD_HTTP_ENDPOINT("POST", "/msg/getAllPersonMessages", msgController, &MsgController::getAllPersonMessages)
         ADD_HTTP_ENDPOINT("POST", "/msg/getSyncPersonMessages", msgController, &MsgController::getSyncPersonMessages)
         ADD_HTTP_ENDPOINT("POST", "/msg/getAllGroupMessages", msgController, &MsgController::getAllGroupMessages)
         ADD_HTTP_ENDPOINT("POST", "/msg/getSyncGroupMessages", msgController, &MsgController::getSyncGroupMessages)
+        ADD_HTTP_ENDPOINT("POST", "/file/upload", fileController, &FileController::upload)
         httpServer.start();
     });
     appTcpServerThread.join();

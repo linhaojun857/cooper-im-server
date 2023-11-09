@@ -17,6 +17,12 @@ add_library(cooper-im-server-lib
         controller/UserController.cpp
         controller/MsgController.hpp
         controller/MsgController.cpp
+        controller/FileController.hpp
+        controller/FileController.cpp
+        controller/FriendController.hpp
+        controller/FriendController.cpp
+        controller/GroupController.hpp
+        controller/GroupController.cpp
         # define
         define/IMDefine.hpp
         # store

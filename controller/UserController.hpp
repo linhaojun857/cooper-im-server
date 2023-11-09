@@ -23,28 +23,6 @@ public:
 
     void getSyncState(const HttpRequest& request, HttpResponse& response);
 
-    void getAllFriends(const HttpRequest& request, HttpResponse& response);
-
-    void getFriendsByIds(const HttpRequest& request, HttpResponse& response);
-
-    void getSyncFriends(const HttpRequest& request, HttpResponse& response);
-
-    void searchFriend(const HttpRequest& request, HttpResponse& response);
-
-    void addFriend(const HttpRequest& request, HttpResponse& response);
-
-    void responseFriendApply(const HttpRequest& request, HttpResponse& response);
-
-    void createGroup(const HttpRequest& request, HttpResponse& response);
-
-    void searchGroup(const HttpRequest& request, HttpResponse& response);
-
-    void addGroup(const HttpRequest& request, HttpResponse& response);
-
-    void responseGroupApply(const HttpRequest& request, HttpResponse& response);
-
-    void getAllGroups(const HttpRequest& request, HttpResponse& response);
-
     void handleAuthMsg(const TcpConnectionPtr& connPtr, const json& params);
 
     void handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, const json& params);
