@@ -16,7 +16,11 @@ class FileController {
 public:
     FileController(connection_pool<dbng<mysql>>* sqlConnPool, std::shared_ptr<Redis> redisConn);
 
+    void checkBeforeUpload(const HttpRequest& request, HttpResponse& response);
+
     void upload(const HttpRequest& request, HttpResponse& response);
+
+    void shardUpload(const HttpRequest& request, HttpResponse& response);
 
 private:
     connection_pool<dbng<mysql>>* sqlConnPool_ = nullptr;

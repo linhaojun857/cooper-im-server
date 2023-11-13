@@ -295,6 +295,7 @@ struct GroupMessage {
     int from_id{};
     int group_id{};
     int message_type{};
+    // 当消息类型为file时，message存储json格式文件信息（文件名，文件大小）
     std::string message;
     std::string file_url;
     time_t timestamp{};
@@ -586,5 +587,24 @@ struct File {
 };
 
 REFLECTION_WITH_NAME(File, "t_file", id, file_type, file_name, file_url, file_size, file_md5, user_id, timestamp)
+
+struct ShardUploadStatus {
+    int count{};
+    std::unordered_set<int> shardIds;
+
+    static ShardUploadStatus fromJson(const json& j) {
+        ShardUploadStatus status;
+        status.count = j["count"].get<int>();
+        status.shardIds = j["shardIds"].get<std::unordered_set<int>>();
+        return status;
+    }
+
+    json toJson() {
+        json j;
+        j["count"] = count;
+        j["shardIds"] = shardIds;
+        return j;
+    }
+};
 
 #endif

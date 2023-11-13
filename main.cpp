@@ -107,7 +107,9 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/msg/getSyncPersonMessages", msgController, &MsgController::getSyncPersonMessages)
         ADD_HTTP_ENDPOINT("POST", "/msg/getAllGroupMessages", msgController, &MsgController::getAllGroupMessages)
         ADD_HTTP_ENDPOINT("POST", "/msg/getSyncGroupMessages", msgController, &MsgController::getSyncGroupMessages)
+        ADD_HTTP_ENDPOINT("POST", "/file/checkBeforeUpload", fileController, &FileController::checkBeforeUpload)
         ADD_HTTP_ENDPOINT("POST", "/file/upload", fileController, &FileController::upload)
+        ADD_HTTP_ENDPOINT("POST", "/file/shardUpload", fileController, &FileController::shardUpload)
         httpServer.start();
     });
     appTcpServerThread.join();

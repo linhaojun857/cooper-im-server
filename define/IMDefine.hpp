@@ -98,6 +98,8 @@
 #define REDIS_KEY_SYNC_STATE_PREFIX "sync_state:"
 #define REDIS_KEY_SYNC_FRIEND_ENTITY_PREFIX "sync_friend_entity:"
 #define REDIS_KEY_CUR_YEAR_GROUP_NUM "cur_year_group_num"
+#define REDIS_KEY_SHARD_UPLOAD_FILE "shard_upload_file:"
+#define REDIS_KEY_SHARD_UPLOAD_FILE_MUTEX "shard_upload_file_mutex:"
 
 #define SYNC_DATA_FRIEND_ENTITY_INSERT 1
 #define SYNC_DATA_FRIEND_ENTITY_UPDATE 2
