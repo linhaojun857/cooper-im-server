@@ -53,7 +53,7 @@ void FileController::upload(const cooper::HttpRequest& request, cooper::HttpResp
     }
     GET_SQL_CONN_H(sqlConn)
     const auto& fileData = request.getMultiPartFormData("file");
-    auto file_md5 = MD5(fileData.content).hexdigest();
+    auto file_md5 = request.getMultiPartFormData("file_md5").content;
     auto ret = sqlConn->query<File>("select * from t_file where file_md5 = '" + file_md5 +
                                     "' and user_id = " + std::to_string(userId));
     if (!ret.empty()) {
@@ -65,13 +65,28 @@ void FileController::upload(const cooper::HttpRequest& request, cooper::HttpResp
     std::string randomFileName = IMUtil::generateRandomFileName(fileType);
     std::string fileUrl = FILE_URL_PREFIX + std::to_string(userId) + "/" + randomFileName;
     std::string filePath = UPLOAD_PATH + std::to_string(userId) + "/" + randomFileName;
-    int fd = open(filePath.c_str(), O_CREAT | O_WRONLY, 0644);
+    int fd = open(filePath.c_str(), O_CREAT | O_RDWR, 0644);
     if (fd < 0) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "上传失败")
     }
     write(fd, fileData.content.data(), fileData.content.size());
+    fsync(fd);
+    lseek(fd, 0, SEEK_SET);
+    struct stat statBuf {};
+    size_t fileSize;
+    if (::stat(filePath.c_str(), &statBuf) == 0) {
+        fileSize = statBuf.st_size;
+    } else {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "文件上传失败")
+    }
+    std::string content(fileSize, '\0');
+    read(fd, content.data(), fileSize);
     close(fd);
-    File file(fileType, fileData.filename, fileUrl, static_cast<long>(fileData.content.size()), file_md5, userId,
+    std::string md5 = MD5(content).hexdigest();
+    if (md5 != file_md5) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "文件上传失败")
+    }
+    File file(fileType, fileData.filename, fileUrl, static_cast<long>(fileData.content.size()), md5, userId,
               time(nullptr));
     sqlConn->insert(file);
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "上传成功")
@@ -131,10 +146,10 @@ void FileController::shardUpload(const HttpRequest& request, HttpResponse& respo
             redisConn_->del(REDIS_KEY_SHARD_UPLOAD_FILE_MUTEX + su_id);
             RETURN_RESPONSE(HTTP_SUCCESS_CODE, "该分片上传成功")
         }
-        struct stat statbuf {};
+        struct stat statBuf {};
         size_t fileSize;
-        if (::stat(filePath.c_str(), &statbuf) == 0) {
-            fileSize = statbuf.st_size;
+        if (::stat(filePath.c_str(), &statBuf) == 0) {
+            fileSize = statBuf.st_size;
         } else {
             redisConn_->del(REDIS_KEY_SHARD_UPLOAD_FILE_MUTEX + su_id);
             RETURN_RESPONSE(HTTP_ERROR_CODE, "文件上传失败")

@@ -7,7 +7,7 @@
 
 int main() {
     std::string filePath =
-        "/home/linhaojun/cpp-code/cooper-im-server/static/upload/1/2ff3499d30b1412b894c227203a43bb2.jpg";
+        "/home/linhaojun/cpp-code/cooper-im-server/static/upload/1/c0181b49cf8a484ca52001519d2b8239.png";
     struct stat statbuf {};
     size_t fileSize;
     if (::stat(filePath.c_str(), &statbuf) == 0) {
