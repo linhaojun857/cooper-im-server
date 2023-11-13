@@ -33,12 +33,12 @@ void FileController::checkBeforeUpload(const cooper::HttpRequest& request, coope
     auto ret = sqlConn->query<File>("select * from t_file where file_md5 = '" + file_md5 +
                                     "' and user_id = " + std::to_string(userId));
     if (ret.empty()) {
-        j["isExist"] = 0;
+        j["exist"] = 0;
         RETURN_RESPONSE(HTTP_SUCCESS_CODE, "文件不存在")
     }
     ret[0].file_name = filename;
     sqlConn->update(ret[0]);
-    j["isExist"] = 1;
+    j["exist"] = 1;
     j["file_url"] = ret[0].file_url;
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "文件已存在")
 }
@@ -59,6 +59,7 @@ void FileController::upload(const cooper::HttpRequest& request, cooper::HttpResp
     if (!ret.empty()) {
         ret[0].file_name = fileData.filename;
         sqlConn->update(ret[0]);
+        j["file_url"] = ret[0].file_url;
         RETURN_RESPONSE(HTTP_SUCCESS_CODE, "上传成功")
     }
     std::string fileType = IMUtil::getFileType(fileData.filename);
@@ -89,6 +90,7 @@ void FileController::upload(const cooper::HttpRequest& request, cooper::HttpResp
     File file(fileType, fileData.filename, fileUrl, static_cast<long>(fileData.content.size()), md5, userId,
               time(nullptr));
     sqlConn->insert(file);
+    j["file_url"] = fileUrl;
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "上传成功")
 }
 
@@ -111,8 +113,12 @@ void FileController::shardUpload(const HttpRequest& request, HttpResponse& respo
     auto ret = sqlConn->query<File>("select * from t_file where file_md5 = '" + file_md5 +
                                     "' and user_id = " + std::to_string(userId));
     if (!ret.empty()) {
-        ret[0].file_name = fileData.filename;
-        sqlConn->update(ret[0]);
+        if (shard_index == 1) {
+            ret[0].file_name = fileData.filename;
+            sqlConn->update(ret[0]);
+        }
+        j["complete"] = 1;
+        j["file_url"] = ret[0].file_url;
         RETURN_RESPONSE(HTTP_SUCCESS_CODE, "上传成功")
     }
     std::string fileType = IMUtil::getFileType(filename);
@@ -137,6 +143,7 @@ void FileController::shardUpload(const HttpRequest& request, HttpResponse& respo
             if (status.count != shard_count) {
                 redisConn_->set(REDIS_KEY_SHARD_UPLOAD_FILE + su_id, status.toJson().dump());
                 redisConn_->del(REDIS_KEY_SHARD_UPLOAD_FILE_MUTEX + su_id);
+                j["complete"] = 0;
                 RETURN_RESPONSE(HTTP_SUCCESS_CODE, "该分片上传成功")
             }
         } else {
@@ -146,6 +153,7 @@ void FileController::shardUpload(const HttpRequest& request, HttpResponse& respo
             redisConn_->set(REDIS_KEY_SHARD_UPLOAD_FILE + su_id, status.toJson().dump());
             if (status.count != shard_count) {
                 redisConn_->del(REDIS_KEY_SHARD_UPLOAD_FILE_MUTEX + su_id);
+                j["complete"] = 0;
                 RETURN_RESPONSE(HTTP_SUCCESS_CODE, "该分片上传成功")
             }
         }
@@ -175,6 +183,8 @@ void FileController::shardUpload(const HttpRequest& request, HttpResponse& respo
         sqlConn->insert(file);
         redisConn_->del(REDIS_KEY_SHARD_UPLOAD_FILE + su_id);
         redisConn_->del(REDIS_KEY_SHARD_UPLOAD_FILE_MUTEX + su_id);
+        j["complete"] = 1;
+        j["file_url"] = fileUrl;
         RETURN_RESPONSE(HTTP_SUCCESS_CODE, "文件上传成功")
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
