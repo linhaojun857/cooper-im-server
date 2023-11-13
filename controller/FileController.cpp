@@ -134,17 +134,20 @@ void FileController::shardUpload(const HttpRequest& request, HttpResponse& respo
         if (!ret2.has_value()) {
             status.count = 1;
             status.shardIds.insert(shard_index);
+            if (status.count != shard_count) {
+                redisConn_->set(REDIS_KEY_SHARD_UPLOAD_FILE + su_id, status.toJson().dump());
+                redisConn_->del(REDIS_KEY_SHARD_UPLOAD_FILE_MUTEX + su_id);
+                RETURN_RESPONSE(HTTP_SUCCESS_CODE, "该分片上传成功")
+            }
+        } else {
+            status = ShardUploadStatus::fromJson(json::parse(ret2.value()));
+            ++status.count;
+            status.shardIds.insert(shard_index);
             redisConn_->set(REDIS_KEY_SHARD_UPLOAD_FILE + su_id, status.toJson().dump());
-            redisConn_->del(REDIS_KEY_SHARD_UPLOAD_FILE_MUTEX + su_id);
-            RETURN_RESPONSE(HTTP_SUCCESS_CODE, "该分片上传成功")
-        }
-        status = ShardUploadStatus::fromJson(json::parse(ret2.value()));
-        ++status.count;
-        status.shardIds.insert(shard_index);
-        redisConn_->set(REDIS_KEY_SHARD_UPLOAD_FILE + su_id, status.toJson().dump());
-        if (status.count != shard_count) {
-            redisConn_->del(REDIS_KEY_SHARD_UPLOAD_FILE_MUTEX + su_id);
-            RETURN_RESPONSE(HTTP_SUCCESS_CODE, "该分片上传成功")
+            if (status.count != shard_count) {
+                redisConn_->del(REDIS_KEY_SHARD_UPLOAD_FILE_MUTEX + su_id);
+                RETURN_RESPONSE(HTTP_SUCCESS_CODE, "该分片上传成功")
+            }
         }
         struct stat statBuf {};
         size_t fileSize;
