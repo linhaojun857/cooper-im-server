@@ -23,6 +23,8 @@ add_library(cooper-im-server-lib
         controller/FriendController.cpp
         controller/GroupController.hpp
         controller/GroupController.cpp
+        controller/LiveController.hpp
+        controller/LiveController.cpp
         # define
         define/IMDefine.hpp
         # store

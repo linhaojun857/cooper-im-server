@@ -11,6 +11,7 @@
 #include "controller/FileController.hpp"
 #include "controller/FriendController.hpp"
 #include "controller/GroupController.hpp"
+#include "controller/LiveController.hpp"
 #include "controller/MsgController.hpp"
 #include "controller/UserController.hpp"
 #include "define/IMDefine.hpp"
@@ -52,7 +53,8 @@ int main() {
             !sqlConn->create_datatable<UserGroup>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<GroupApply>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<GroupMessage>(ormpp_auto_key{"id"}) ||
-            !sqlConn->create_datatable<File>(ormpp_auto_key{"id"})) {
+            !sqlConn->create_datatable<File>(ormpp_auto_key{"id"}) ||
+            !sqlConn->create_datatable<LiveRoom>(ormpp_auto_key{"id"})) {
             LOG_ERROR << "create table failed";
             return -1;
         }
@@ -71,6 +73,7 @@ int main() {
     GroupController groupController(sqlConnPool, redisConn);
     MsgController msgController(sqlConnPool, redisConn);
     FileController fileController(sqlConnPool, redisConn);
+    LiveController liveController(sqlConnPool, redisConn);
     std::thread appTcpServerThread([&]() {
         AppTcpServer appTcpServer(8888, false);
         appTcpServer.setConnectionCallback([&](const TcpConnectionPtr& connPtr) {
@@ -110,6 +113,9 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/file/checkBeforeUpload", fileController, &FileController::checkBeforeUpload)
         ADD_HTTP_ENDPOINT("POST", "/file/upload", fileController, &FileController::upload)
         ADD_HTTP_ENDPOINT("POST", "/file/shardUpload", fileController, &FileController::shardUpload)
+        ADD_HTTP_ENDPOINT("POST", "/live/openLive", liveController, &LiveController::openLive)
+        ADD_HTTP_ENDPOINT("POST", "/live/closeLive", liveController, &LiveController::closeLive)
+        ADD_HTTP_ENDPOINT("POST", "/live/getOpenedLives", liveController, &LiveController::getOpenedLives)
         httpServer.start();
     });
     appTcpServerThread.join();

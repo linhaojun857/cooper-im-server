@@ -100,6 +100,8 @@
 #define REDIS_KEY_CUR_YEAR_GROUP_NUM "cur_year_group_num"
 #define REDIS_KEY_SHARD_UPLOAD_FILE "shard_upload_file:"
 #define REDIS_KEY_SHARD_UPLOAD_FILE_MUTEX "shard_upload_file_mutex:"
+#define REDIS_KEY_LIVE_ROOM "live_room:"
+#define REDIS_KEY_LIVE_ROOM_SET "live_room_set"
 
 #define SYNC_DATA_FRIEND_ENTITY_INSERT 1
 #define SYNC_DATA_FRIEND_ENTITY_UPDATE 2
@@ -116,5 +118,8 @@
 #define DEFAULT_GROUP_AVATAR "http://localhost:9999/static/img/group.png"
 #define UPLOAD_PATH "/home/linhaojun/cpp-code/cooper-im-server/static/upload/"
 #define FILE_URL_PREFIX "http://localhost:9999/static/upload/"
+
+#define LIVE_ON 1
+#define LIVE_CLOSE 0
 
 #endif

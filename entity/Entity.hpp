@@ -607,4 +607,93 @@ struct ShardUploadStatus {
     }
 };
 
+struct LiveRoom {
+    int id = 0;
+    int owner_id = 0;
+    std::string name;
+
+    LiveRoom() = default;
+
+    LiveRoom(int owner_id, const std::string& name) {
+        this->owner_id = owner_id;
+        this->name = name;
+    }
+};
+
+REFLECTION_WITH_NAME(LiveRoom, "t_live_room", id, owner_id, name)
+
+struct LiveStatus {
+    std::string cover;
+    int viewer_count = 0;
+
+    LiveStatus() = default;
+
+    explicit LiveStatus(const std::string& cover) {
+        this->cover = cover;
+    }
+
+    static LiveStatus fromJson(const json& j) {
+        LiveStatus status;
+        status.cover = j["cover"].get<std::string>();
+        status.viewer_count = j["viewer_count"].get<int>();
+        return status;
+    }
+
+    json toJson() {
+        json j;
+        j["cover"] = cover;
+        j["viewer_count"] = viewer_count;
+        return j;
+    }
+};
+
+struct LiveRoomDTO {
+    int id = 0;
+    int owner_id = 0;
+    std::string owner_nickname;
+    std::string owner_avatar;
+    std::string name;
+    std::string cover;
+    int viewer_count = 0;
+
+    LiveRoomDTO() = default;
+
+    LiveRoomDTO(int id, int owner_id, const std::string& owner_nickname, const std::string& owner_avatar,
+                const std::string& name, const std::string& cover, int viewer_count) {
+        this->id = id;
+        this->owner_id = owner_id;
+        this->owner_nickname = owner_nickname;
+        this->owner_avatar = owner_avatar;
+        this->name = name;
+        this->cover = cover;
+        this->viewer_count = viewer_count;
+    }
+
+    static LiveRoomDTO fromJson(const json& j) {
+        LiveRoomDTO dto;
+        dto.id = j["id"].get<int>();
+        dto.owner_id = j["owner_id"].get<int>();
+        dto.owner_nickname = j["owner_nickname"].get<std::string>();
+        dto.owner_avatar = j["owner_avatar"].get<std::string>();
+        dto.name = j["name"].get<std::string>();
+        dto.cover = j["cover"].get<std::string>();
+        dto.viewer_count = j["viewer_count"].get<int>();
+        return dto;
+    }
+
+    json toJson() {
+        json j;
+        j["id"] = id;
+        j["owner_id"] = owner_id;
+        j["owner_nickname"] = owner_nickname;
+        j["owner_avatar"] = owner_avatar;
+        j["name"] = name;
+        j["cover"] = cover;
+        j["viewer_count"] = viewer_count;
+        return j;
+    }
+};
+
+REFLECTION(LiveRoomDTO, id, owner_id, owner_nickname, owner_avatar, name, cover, viewer_count)
+
 #endif
