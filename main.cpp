@@ -115,7 +115,7 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/file/shardUpload", fileController, &FileController::shardUpload)
         ADD_HTTP_ENDPOINT("POST", "/live/openLive", liveController, &LiveController::openLive)
         ADD_HTTP_ENDPOINT("POST", "/live/closeLive", liveController, &LiveController::closeLive)
-        ADD_HTTP_ENDPOINT("POST", "/live/getOpenedLives", liveController, &LiveController::getOpenedLives)
+        ADD_HTTP_ENDPOINT("GET", "/live/getOpenedLives", liveController, &LiveController::getOpenedLives)
         httpServer.start();
     });
     appTcpServerThread.join();

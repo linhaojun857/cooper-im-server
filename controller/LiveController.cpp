@@ -18,17 +18,17 @@ void LiveController::openLive(const cooper::HttpRequest& request, cooper::HttpRe
     LOG_DEBUG << "LiveController::openLive";
     auto params = json::parse(request.body_);
     json j;
-    HTTP_CHECK_PARAMS(params, "token", "name", "cover")
+    HTTP_CHECK_PARAMS(params, "token", "cover")
     std::string token = params["token"].get<std::string>();
     int userId = JwtUtil::parseToken(token);
     if (userId == -1) {
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
-    std::string name = params["name"].get<std::string>();
     std::string cover = params["cover"].get<std::string>();
     GET_SQL_CONN_H(sqlConn)
     LiveStatus status(cover);
-    auto ret = sqlConn->query<std::tuple<int, std::string>>("select id, name from live_room where user_id = ?", userId);
+    auto ret = sqlConn->query<std::tuple<int, std::string>>("select id from t_live_room where owner_id = " +
+                                                            std::to_string(userId));
     if (!ret.empty()) {
         int room_id = std::get<0>(ret[0]);
         j["room_id"] = room_id;
@@ -36,7 +36,7 @@ void LiveController::openLive(const cooper::HttpRequest& request, cooper::HttpRe
         redisConn_->sadd(REDIS_KEY_LIVE_ROOM_SET, std::to_string(room_id));
         RETURN_RESPONSE(HTTP_SUCCESS_CODE, "开启成功")
     }
-    LiveRoom liveRoom(userId, name);
+    LiveRoom liveRoom(userId);
     sqlConn->insert(liveRoom);
     auto id = sqlConn->query<std::tuple<int>>("select LAST_INSERT_ID()");
     int room_id = std::get<0>(id[0]);
@@ -63,26 +63,15 @@ void LiveController::closeLive(const cooper::HttpRequest& request, cooper::HttpR
 
 void LiveController::getOpenedLives(const HttpRequest& request, HttpResponse& response) {
     LOG_DEBUG << "LiveController::getOpenedLives";
-    auto params = json::parse(request.body_);
     json j;
-    HTTP_CHECK_PARAMS(params, "token")
-    std::string token = params["token"].get<std::string>();
-    int userId = JwtUtil::parseToken(token);
-    if (userId == -1) {
-        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
-    }
     GET_SQL_CONN_H(sqlConn)
-    std::vector<int> openedLiveRoomIds;
-    auto ret = redisConn_->spop(REDIS_KEY_LIVE_ROOM_SET);
-    while (ret.has_value()) {
-        openedLiveRoomIds.push_back(std::stoi(ret.value()));
-        ret = redisConn_->spop(REDIS_KEY_LIVE_ROOM_SET);
-    }
+    std::vector<std::string> openedLiveRoomIds;
+    redisConn_->smembers(REDIS_KEY_LIVE_ROOM_SET, std::back_inserter(openedLiveRoomIds));
     if (openedLiveRoomIds.empty()) {
         RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
     }
     for (const auto& liveRoomId : openedLiveRoomIds) {
-        auto ret1 = redisConn_->get(REDIS_KEY_LIVE_ROOM + std::to_string(liveRoomId));
+        auto ret1 = redisConn_->get(REDIS_KEY_LIVE_ROOM + liveRoomId);
         if (ret1.has_value()) {
             auto status = LiveStatus::fromJson(json::parse(ret1.value()));
             auto ret2 = sqlConn->query<LiveRoomDTO>(
@@ -90,15 +79,16 @@ void LiveController::getOpenedLives(const HttpRequest& request, HttpResponse& re
                 "t_live_room.id, "
                 "t_user.id, "
                 "t_user.nickname, "
-                "t_user.avatar, "
-                "t_live_room.name, " +
-                status.cover + ", " + std::to_string(status.viewer_count) +
-                ", "
-                "from t_live_room left join t_user on t_live_room.owner_id = "
+                "t_user.avatar "
+                "from t_live_room left join t_user "
+                "on t_live_room.owner_id = "
                 "t_user.id where t_live_room.id = " +
-                std::to_string(liveRoomId));
+                liveRoomId);
             if (!ret2.empty()) {
-                j["live_rooms"].push_back(ret2[0].toJson());
+                auto jRet = ret2[0].toJson();
+                jRet["cover"] = status.cover;
+                jRet["viewer_count"] = status.viewer_count;
+                j["live_rooms"].push_back(jRet);
             }
         }
     }

@@ -610,17 +610,15 @@ struct ShardUploadStatus {
 struct LiveRoom {
     int id = 0;
     int owner_id = 0;
-    std::string name;
 
     LiveRoom() = default;
 
-    LiveRoom(int owner_id, const std::string& name) {
+    explicit LiveRoom(int owner_id) {
         this->owner_id = owner_id;
-        this->name = name;
     }
 };
 
-REFLECTION_WITH_NAME(LiveRoom, "t_live_room", id, owner_id, name)
+REFLECTION_WITH_NAME(LiveRoom, "t_live_room", id, owner_id)
 
 struct LiveStatus {
     std::string cover;
