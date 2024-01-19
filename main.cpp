@@ -22,11 +22,15 @@
     Headers headers;                         \
     httpServer.addMountPoint(mountPoint, dir, headers);
 
-#define ADD_HTTP_ENDPOINT(method, path, service, handler) \
-    httpServer.addEndpoint(method, path, std::bind(handler, &service, _1, _2));
+#define ADD_HTTP_ENDPOINT(httpMethod, path, controller, method)                                  \
+    httpServer.addEndpoint(httpMethod, path, [objectPtr = &controller](auto&& PH1, auto&& PH2) { \
+        objectPtr->method(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));   \
+    });
 
-#define ADD_TCP_ENDPOINT(type, service, handler) \
-    appTcpServer.registerProtocolHandler(type, std::bind(handler, &service, _1, _2));
+#define ADD_TCP_ENDPOINT(type, controller, method)                                                 \
+    appTcpServer.registerProtocolHandler(type, [objectPtr = &controller](auto&& PH1, auto&& PH2) { \
+        objectPtr->method(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));     \
+    });
 
 using namespace cooper;
 using namespace ormpp;
@@ -36,8 +40,13 @@ using namespace std::placeholders;
 int main() {
     AsyncLogWriter writer;
     Logger::setLogLevel(Logger::kTrace);
-    Logger::setOutputFunction(std::bind(&AsyncLogWriter::write, &writer, _1, _2),
-                              std::bind(&AsyncLogWriter::flushAll, &writer));
+    Logger::setOutputFunction(
+        [objectPtr = &writer](auto&& PH1, auto&& PH2) {
+            objectPtr->write(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));
+        },
+        [objectPtr = &writer] {
+            objectPtr->flushAll();
+        });
     connection_pool<dbng<mysql>>::instance().init(MYSQL_CONNECTION_POOL_SIZE, MYSQL_SERVER_IP, MYSQL_SERVER_USERNAME,
                                                   MYSQL_SERVER_PASSWORD, MYSQL_SERVER_DATABASE, MYSQL_SERVER_TIMEOUT,
                                                   MYSQL_SERVER_PORT);
@@ -81,41 +90,46 @@ int main() {
                 IMStore::getInstance()->removeTcpConnectionByConn(connPtr);
             }
         });
-        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_AUTH_MSG, userController, &UserController::handleAuthMsg)
-        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_SYNC_COMPLETE_MESSAGE, userController, &UserController::handleSyncCompleteMsg)
-        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_PERSON_MESSAGE_SEND, msgController, &MsgController::handlePersonSendMsg)
-        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_GROUP_MESSAGE_SEND, msgController, &MsgController::handleGroupSendMsg)
+        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_AUTH_MSG, userController, handleAuthMsg)
+        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_SYNC_COMPLETE_MESSAGE, userController, handleSyncCompleteMsg)
+        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_PERSON_MESSAGE_SEND, msgController, handlePersonSendMsg)
+        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_GROUP_MESSAGE_SEND, msgController, handleGroupSendMsg)
+        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_LIVE_ROOM_MSG, liveController, handleLiveRoomMsg)
+        appTcpServer.registerProtocolHandler(((1000) + 15), [ObjectPtr = &liveController](auto&& PH1, auto&& PH2) {
+            ObjectPtr->handleLiveRoomMsg(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));
+        });
         appTcpServer.start();
     });
     std::thread httpServerThread([&]() {
         HttpServer httpServer(9999);
         ADD_HTTP_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static")
-        ADD_HTTP_ENDPOINT("POST", "/user/getVFCode", userController, &UserController::getVfCode)
-        ADD_HTTP_ENDPOINT("POST", "/user/login", userController, &UserController::userLogin)
-        ADD_HTTP_ENDPOINT("POST", "/user/register", userController, &UserController::userRegister)
-        ADD_HTTP_ENDPOINT("POST", "/user/getSyncState", userController, &UserController::getSyncState)
-        ADD_HTTP_ENDPOINT("POST", "/friend/getAllFriends", friendController, &FriendController::getAllFriends)
-        ADD_HTTP_ENDPOINT("POST", "/friend/getFriendsByIds", friendController, &FriendController::getFriendsByIds)
-        ADD_HTTP_ENDPOINT("POST", "/friend/getSyncFriends", friendController, &FriendController::getSyncFriends)
-        ADD_HTTP_ENDPOINT("POST", "/friend/searchFriend", friendController, &FriendController::searchFriend)
-        ADD_HTTP_ENDPOINT("POST", "/friend/addFriend", friendController, &FriendController::addFriend)
-        ADD_HTTP_ENDPOINT("POST", "/friend/responseFriendApply", friendController,
-                          &FriendController::responseFriendApply)
-        ADD_HTTP_ENDPOINT("POST", "/group/createGroup", groupController, &GroupController::createGroup)
-        ADD_HTTP_ENDPOINT("POST", "/group/searchGroup", groupController, &GroupController::searchGroup)
-        ADD_HTTP_ENDPOINT("POST", "/group/addGroup", groupController, &GroupController::addGroup)
-        ADD_HTTP_ENDPOINT("POST", "/group/responseGroupApply", groupController, &GroupController::responseGroupApply)
-        ADD_HTTP_ENDPOINT("POST", "/group/getAllGroups", groupController, &GroupController::getAllGroups)
-        ADD_HTTP_ENDPOINT("POST", "/msg/getAllPersonMessages", msgController, &MsgController::getAllPersonMessages)
-        ADD_HTTP_ENDPOINT("POST", "/msg/getSyncPersonMessages", msgController, &MsgController::getSyncPersonMessages)
-        ADD_HTTP_ENDPOINT("POST", "/msg/getAllGroupMessages", msgController, &MsgController::getAllGroupMessages)
-        ADD_HTTP_ENDPOINT("POST", "/msg/getSyncGroupMessages", msgController, &MsgController::getSyncGroupMessages)
-        ADD_HTTP_ENDPOINT("POST", "/file/checkBeforeUpload", fileController, &FileController::checkBeforeUpload)
-        ADD_HTTP_ENDPOINT("POST", "/file/upload", fileController, &FileController::upload)
-        ADD_HTTP_ENDPOINT("POST", "/file/shardUpload", fileController, &FileController::shardUpload)
-        ADD_HTTP_ENDPOINT("POST", "/live/openLive", liveController, &LiveController::openLive)
-        ADD_HTTP_ENDPOINT("POST", "/live/closeLive", liveController, &LiveController::closeLive)
-        ADD_HTTP_ENDPOINT("GET", "/live/getOpenedLives", liveController, &LiveController::getOpenedLives)
+        ADD_HTTP_ENDPOINT("POST", "/user/getVFCode", userController, getVfCode)
+        ADD_HTTP_ENDPOINT("POST", "/user/login", userController, userLogin)
+        ADD_HTTP_ENDPOINT("POST", "/user/register", userController, userRegister)
+        ADD_HTTP_ENDPOINT("POST", "/user/getSyncState", userController, getSyncState)
+        ADD_HTTP_ENDPOINT("POST", "/friend/getAllFriends", friendController, getAllFriends)
+        ADD_HTTP_ENDPOINT("POST", "/friend/getFriendsByIds", friendController, getFriendsByIds)
+        ADD_HTTP_ENDPOINT("POST", "/friend/getSyncFriends", friendController, getSyncFriends)
+        ADD_HTTP_ENDPOINT("POST", "/friend/searchFriend", friendController, searchFriend)
+        ADD_HTTP_ENDPOINT("POST", "/friend/addFriend", friendController, addFriend)
+        ADD_HTTP_ENDPOINT("POST", "/friend/responseFriendApply", friendController, responseFriendApply)
+        ADD_HTTP_ENDPOINT("POST", "/group/createGroup", groupController, createGroup)
+        ADD_HTTP_ENDPOINT("POST", "/group/searchGroup", groupController, searchGroup)
+        ADD_HTTP_ENDPOINT("POST", "/group/addGroup", groupController, addGroup)
+        ADD_HTTP_ENDPOINT("POST", "/group/responseGroupApply", groupController, responseGroupApply)
+        ADD_HTTP_ENDPOINT("POST", "/group/getAllGroups", groupController, getAllGroups)
+        ADD_HTTP_ENDPOINT("POST", "/msg/getAllPersonMessages", msgController, getAllPersonMessages)
+        ADD_HTTP_ENDPOINT("POST", "/msg/getSyncPersonMessages", msgController, getSyncPersonMessages)
+        ADD_HTTP_ENDPOINT("POST", "/msg/getAllGroupMessages", msgController, getAllGroupMessages)
+        ADD_HTTP_ENDPOINT("POST", "/msg/getSyncGroupMessages", msgController, getSyncGroupMessages)
+        ADD_HTTP_ENDPOINT("POST", "/file/checkBeforeUpload", fileController, checkBeforeUpload)
+        ADD_HTTP_ENDPOINT("POST", "/file/upload", fileController, upload)
+        ADD_HTTP_ENDPOINT("POST", "/file/shardUpload", fileController, shardUpload)
+        ADD_HTTP_ENDPOINT("POST", "/live/openLive", liveController, openLive)
+        ADD_HTTP_ENDPOINT("POST", "/live/closeLive", liveController, closeLive)
+        ADD_HTTP_ENDPOINT("GET", "/live/getOpenedLives", liveController, getOpenedLives)
+        ADD_HTTP_ENDPOINT("GET", "/live/enterLive", liveController, enterLive)
+        ADD_HTTP_ENDPOINT("GET", "/live/leaveLive", liveController, leaveLive)
         httpServer.start();
     });
     appTcpServerThread.join();

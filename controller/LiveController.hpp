@@ -22,6 +22,14 @@ public:
 
     void getOpenedLives(const HttpRequest& request, HttpResponse& response);
 
+    void enterLive(const HttpRequest& request, HttpResponse& response);
+
+    void leaveLive(const HttpRequest& request, HttpResponse& response);
+
+    void handleLiveRoomMsg(const TcpConnectionPtr& connPtr, const json& params);
+
+    void notifyUsersWhenLiveEnd(int roomId);
+
 private:
     connection_pool<dbng<mysql>>* sqlConnPool_ = nullptr;
     std::shared_ptr<Redis> redisConn_;

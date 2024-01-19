@@ -12,6 +12,7 @@
 
 FriendController::FriendController(connection_pool<dbng<mysql>>* sqlConnPool, std::shared_ptr<Redis> redisConn)
     : sqlConnPool_(sqlConnPool), redisConn_(std::move(redisConn)) {
+    IMStore::getInstance()->registerFriendController(this);
 }
 
 void FriendController::getAllFriends(const HttpRequest& request, HttpResponse& response) {

@@ -12,6 +12,7 @@
 
 MsgController::MsgController(connection_pool<dbng<mysql>>* sqlConnPool, std::shared_ptr<Redis> redisConn)
     : sqlConnPool_(sqlConnPool), redisConn_(std::move(redisConn)) {
+    IMStore::getInstance()->registerMsgController(this);
 }
 
 void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const json& params) {
@@ -32,6 +33,7 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
     GET_SQL_CONN_T(sqlConn)
     std::vector<int> friendIds;
     auto temps = sqlConn->query<std::tuple<int>>("select b_id from t_friend where a_id =" + std::to_string(userId));
+    friendIds.reserve(temps.size());
     for (const auto& temp : temps) {
         friendIds.emplace_back(std::get<0>(temp));
     }
@@ -144,6 +146,7 @@ void MsgController::handleGroupSendMsg(const cooper::TcpConnectionPtr& connPtr, 
     std::vector<int> groupMemberIds;
     auto temps = sqlConn->query<std::tuple<int>>("select user_id from t_user_group where group_id =" +
                                                  std::to_string(groupMessage.group_id));
+    groupMemberIds.reserve(temps.size());
     for (const auto& temp : temps) {
         groupMemberIds.emplace_back(std::get<0>(temp));
     }

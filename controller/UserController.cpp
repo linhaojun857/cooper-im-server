@@ -12,6 +12,7 @@
 
 UserController::UserController(connection_pool<dbng<mysql>>* sqlConnPool, std::shared_ptr<Redis> redisConn)
     : sqlConnPool_(sqlConnPool), redisConn_(std::move(redisConn)) {
+    IMStore::getInstance()->registerUserController(this);
 }
 
 void UserController::getVfCode(const cooper::HttpRequest& request, cooper::HttpResponse& response) {

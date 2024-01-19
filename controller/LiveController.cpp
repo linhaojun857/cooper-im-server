@@ -12,6 +12,7 @@
 
 LiveController::LiveController(connection_pool<dbng<mysql>>* sqlConnPool, std::shared_ptr<Redis> redisConn)
     : sqlConnPool_(sqlConnPool), redisConn_(std::move(redisConn)) {
+    IMStore::getInstance()->registerLiveController(this);
 }
 
 void LiveController::openLive(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
@@ -34,6 +35,7 @@ void LiveController::openLive(const cooper::HttpRequest& request, cooper::HttpRe
         j["room_id"] = room_id;
         redisConn_->set(REDIS_KEY_LIVE_ROOM + std::to_string(room_id), status.toJson().dump());
         redisConn_->sadd(REDIS_KEY_LIVE_ROOM_SET, std::to_string(room_id));
+        redisConn_->set(REDIS_KEY_USER_LIVE_ROOM + std::to_string(userId), std::to_string(room_id));
         RETURN_RESPONSE(HTTP_SUCCESS_CODE, "开启成功")
     }
     LiveRoom liveRoom(userId);
@@ -43,6 +45,7 @@ void LiveController::openLive(const cooper::HttpRequest& request, cooper::HttpRe
     j["room_id"] = room_id;
     redisConn_->set(REDIS_KEY_LIVE_ROOM + std::to_string(room_id), status.toJson().dump());
     redisConn_->sadd(REDIS_KEY_LIVE_ROOM_SET, std::to_string(room_id));
+    redisConn_->set(REDIS_KEY_USER_LIVE_ROOM + std::to_string(userId), std::to_string(room_id));
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "开启成功")
 }
 
@@ -93,4 +96,79 @@ void LiveController::getOpenedLives(const HttpRequest& request, HttpResponse& re
         }
     }
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
+}
+
+void LiveController::enterLive(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "LiveController::enterLive";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "token", "room_id")
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    int room_id = params["room_id"].get<int>();
+    redisConn_->sadd(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(room_id), std::to_string(userId));
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "进入成功")
+}
+
+void LiveController::leaveLive(const HttpRequest& request, HttpResponse& response) {
+    LOG_DEBUG << "LiveController::leaveLive";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "token", "room_id")
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    int room_id = params["room_id"].get<int>();
+    redisConn_->srem(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(room_id), std::to_string(userId));
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "离开成功")
+}
+
+void LiveController::handleLiveRoomMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {
+    LOG_DEBUG << "LiveController::handleLiveRoomMsg";
+    TCP_CHECK_PARAMS(params, "token", "room_id", "msg")
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        return;
+    }
+    int room_id = params["room_id"].get<int>();
+    std::string msg = params["msg"].get<std::string>();
+    GET_SQL_CONN_T(sqlConn)
+    auto ret1 = sqlConn->query<std::tuple<std::string, std::string>>("select nickname, avatar from t_user where id = " +
+                                                                     std::to_string(userId));
+    std::vector<std::string> viewerIds;
+    redisConn_->smembers(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(room_id), std::back_inserter(viewerIds));
+    json j;
+    j["type"] = PROTOCOL_TYPE_LIVE_ROOM_MSG;
+    j["room_id"] = room_id;
+    j["user_id"] = userId;
+    j["msg"] = msg;
+    j["nickname"] = std::get<0>(ret1[0]);
+    j["avatar"] = std::get<1>(ret1[0]);
+    for (const auto& viewerId : viewerIds) {
+        if (IMStore::getInstance()->isOnlineUser(std::stoi(viewerId))) {
+            auto viewerConnPtr = IMStore::getInstance()->getTcpConnection(std::stoi(viewerId));
+            viewerConnPtr->sendJson(j);
+        }
+    }
+}
+
+void LiveController::notifyUsersWhenLiveEnd(int roomId) {
+    LOG_DEBUG << "LiveController::notifyUsersWhenLiveEnd";
+    std::vector<std::string> viewerIds;
+    redisConn_->smembers(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(roomId), std::back_inserter(viewerIds));
+    for (const auto& viewerId : viewerIds) {
+        if (IMStore::getInstance()->isOnlineUser(std::stoi(viewerId))) {
+            auto connPtr = IMStore::getInstance()->getTcpConnection(std::stoi(viewerId));
+            json j;
+            j["type"] = PROTOCOL_TYPE_LIVE_ROOM_END;
+            j["room_id"] = roomId;
+            connPtr->sendJson(j);
+        }
+    }
 }

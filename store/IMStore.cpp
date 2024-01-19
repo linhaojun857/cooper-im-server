@@ -1,7 +1,5 @@
 #include "IMStore.hpp"
 
-#include <utility>
-
 #include "define/IMDefine.hpp"
 
 IMStore* IMStore::getInstance() {
@@ -53,6 +51,14 @@ void IMStore::removeTcpConnectionById(int id) {
 
 void IMStore::removeTcpConnectionByConn(const cooper::TcpConnectionPtr& connPtr) {
     int userId = tcpConnectionsReverse_[connPtr];
+    auto ret = redisConn_->get(REDIS_KEY_USER_LIVE_ROOM + std::to_string(userId));
+    if (ret.has_value()) {
+        int roomId = std::stoi(ret.value());
+        redisConn_->del(REDIS_KEY_LIVE_ROOM + std::to_string(roomId));
+        redisConn_->srem(REDIS_KEY_LIVE_ROOM_SET, std::to_string(roomId));
+        redisConn_->del(REDIS_KEY_USER_LIVE_ROOM + std::to_string(userId));
+        liveController_->notifyUsersWhenLiveEnd(roomId);
+    }
     removeOnlineUser(userId);
     tcpConnections_.erase(userId);
     tcpConnectionsReverse_.erase(connPtr);
@@ -60,4 +66,28 @@ void IMStore::removeTcpConnectionByConn(const cooper::TcpConnectionPtr& connPtr)
 
 bool IMStore::haveTcpConnection(int id) {
     return tcpConnections_.find(id) != tcpConnections_.end();
+}
+
+void IMStore::registerFileController(FileController* fileController) {
+    fileController_ = fileController;
+}
+
+void IMStore::registerFriendController(FriendController* friendController) {
+    friendController_ = friendController;
+}
+
+void IMStore::registerGroupController(GroupController* groupController) {
+    groupController_ = groupController;
+}
+
+void IMStore::registerLiveController(LiveController* liveController) {
+    liveController_ = liveController;
+}
+
+void IMStore::registerMsgController(MsgController* msgController) {
+    msgController_ = msgController;
+}
+
+void IMStore::registerUserController(UserController* userController) {
+    userController_ = userController;
 }
