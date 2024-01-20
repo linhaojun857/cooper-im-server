@@ -22,6 +22,8 @@ public:
 
     void getOpenedLives(const HttpRequest& request, HttpResponse& response);
 
+    void getOpenedLiveInfoByRoomId(const HttpRequest& request, HttpResponse& response);
+
     void enterLive(const HttpRequest& request, HttpResponse& response);
 
     void leaveLive(const HttpRequest& request, HttpResponse& response);

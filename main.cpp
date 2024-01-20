@@ -103,6 +103,11 @@ int main() {
     std::thread httpServerThread([&]() {
         HttpServer httpServer(9999);
         ADD_HTTP_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static")
+
+        // GET
+        ADD_HTTP_ENDPOINT("GET", "/live/getOpenedLives", liveController, getOpenedLives)
+
+        // POST
         ADD_HTTP_ENDPOINT("POST", "/user/getVFCode", userController, getVfCode)
         ADD_HTTP_ENDPOINT("POST", "/user/login", userController, userLogin)
         ADD_HTTP_ENDPOINT("POST", "/user/register", userController, userRegister)
@@ -127,9 +132,9 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/file/shardUpload", fileController, shardUpload)
         ADD_HTTP_ENDPOINT("POST", "/live/openLive", liveController, openLive)
         ADD_HTTP_ENDPOINT("POST", "/live/closeLive", liveController, closeLive)
-        ADD_HTTP_ENDPOINT("GET", "/live/getOpenedLives", liveController, getOpenedLives)
-        ADD_HTTP_ENDPOINT("GET", "/live/enterLive", liveController, enterLive)
-        ADD_HTTP_ENDPOINT("GET", "/live/leaveLive", liveController, leaveLive)
+        ADD_HTTP_ENDPOINT("POST", "/live/enterLive", liveController, enterLive)
+        ADD_HTTP_ENDPOINT("POST", "/live/leaveLive", liveController, leaveLive)
+        ADD_HTTP_ENDPOINT("POST", "/live/getOpenedLiveInfoByRoomId", liveController, getOpenedLiveInfoByRoomId)
         httpServer.start();
     });
     appTcpServerThread.join();

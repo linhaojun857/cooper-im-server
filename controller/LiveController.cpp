@@ -81,8 +81,8 @@ void LiveController::getOpenedLives(const HttpRequest& request, HttpResponse& re
                 "select "
                 "t_live_room.id, "
                 "t_user.id, "
-                "t_user.nickname, "
-                "t_user.avatar "
+                "t_user.nickname as owner_nickname, "
+                "t_user.avatar as owner_avatar "
                 "from t_live_room left join t_user "
                 "on t_live_room.owner_id = "
                 "t_user.id where t_live_room.id = " +
@@ -93,6 +93,36 @@ void LiveController::getOpenedLives(const HttpRequest& request, HttpResponse& re
                 jRet["viewer_count"] = status.viewer_count;
                 j["live_rooms"].push_back(jRet);
             }
+        }
+    }
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
+}
+
+void LiveController::getOpenedLiveInfoByRoomId(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "LiveController::getOpenedLiveInfoByRoomId";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "room_id")
+    int room_id = params["room_id"].get<int>();
+    GET_SQL_CONN_H(sqlConn)
+    auto ret1 = redisConn_->get(REDIS_KEY_LIVE_ROOM + std::to_string(room_id));
+    if (ret1.has_value()) {
+        auto status = LiveStatus::fromJson(json::parse(ret1.value()));
+        auto ret2 = sqlConn->query<LiveRoomDTO>(
+            "select "
+            "t_live_room.id, "
+            "t_user.id, "
+            "t_user.nickname as owner_nickname, "
+            "t_user.avatar as owner_avatar "
+            "from t_live_room left join t_user "
+            "on t_live_room.owner_id = "
+            "t_user.id where t_live_room.id = " +
+            std::to_string(room_id));
+        if (!ret2.empty()) {
+            auto jRet = ret2[0].toJson();
+            jRet["cover"] = status.cover;
+            jRet["viewer_count"] = status.viewer_count;
+            j["live_room"] = jRet;
         }
     }
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
@@ -109,6 +139,18 @@ void LiveController::enterLive(const cooper::HttpRequest& request, cooper::HttpR
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
     int room_id = params["room_id"].get<int>();
+    auto ret1 = redisConn_->get(REDIS_KEY_USER_LIVE_ROOM + std::to_string(userId));
+    if (ret1.has_value()) {
+        if (std::stoi(ret1.value()) == room_id) {
+            RETURN_RESPONSE(HTTP_ERROR_CODE, "您是该直播间的主播，已在直播间内")
+        }
+    }
+    auto ret2 = redisConn_->get(REDIS_KEY_LIVE_ROOM + std::to_string(room_id));
+    if (ret2.has_value()) {
+        auto status = LiveStatus::fromJson(json::parse(ret2.value()));
+        status.viewer_count++;
+        redisConn_->set(REDIS_KEY_LIVE_ROOM + std::to_string(room_id), status.toJson().dump());
+    }
     redisConn_->sadd(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(room_id), std::to_string(userId));
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "进入成功")
 }
@@ -124,6 +166,12 @@ void LiveController::leaveLive(const HttpRequest& request, HttpResponse& respons
         RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
     }
     int room_id = params["room_id"].get<int>();
+    auto ret1 = redisConn_->get(REDIS_KEY_LIVE_ROOM + std::to_string(room_id));
+    if (ret1.has_value()) {
+        auto status = LiveStatus::fromJson(json::parse(ret1.value()));
+        status.viewer_count--;
+        redisConn_->set(REDIS_KEY_LIVE_ROOM + std::to_string(room_id), status.toJson().dump());
+    }
     redisConn_->srem(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(room_id), std::to_string(userId));
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "离开成功")
 }
@@ -151,6 +199,9 @@ void LiveController::handleLiveRoomMsg(const cooper::TcpConnectionPtr& connPtr, 
     j["nickname"] = std::get<0>(ret1[0]);
     j["avatar"] = std::get<1>(ret1[0]);
     for (const auto& viewerId : viewerIds) {
+        if (std::stoi(viewerId) == userId) {
+            continue;
+        }
         if (IMStore::getInstance()->isOnlineUser(std::stoi(viewerId))) {
             auto viewerConnPtr = IMStore::getInstance()->getTcpConnection(std::stoi(viewerId));
             viewerConnPtr->sendJson(j);
