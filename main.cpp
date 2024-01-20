@@ -94,10 +94,7 @@ int main() {
         ADD_TCP_ENDPOINT(PROTOCOL_TYPE_SYNC_COMPLETE_MESSAGE, userController, handleSyncCompleteMsg)
         ADD_TCP_ENDPOINT(PROTOCOL_TYPE_PERSON_MESSAGE_SEND, msgController, handlePersonSendMsg)
         ADD_TCP_ENDPOINT(PROTOCOL_TYPE_GROUP_MESSAGE_SEND, msgController, handleGroupSendMsg)
-        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_LIVE_ROOM_MSG, liveController, handleLiveRoomMsg)
-        appTcpServer.registerProtocolHandler(((1000) + 15), [ObjectPtr = &liveController](auto&& PH1, auto&& PH2) {
-            ObjectPtr->handleLiveRoomMsg(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));
-        });
+        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_LIVE_ROOM_MSG_SEND, liveController, handleLiveRoomSendMsg)
         appTcpServer.start();
     });
     std::thread httpServerThread([&]() {

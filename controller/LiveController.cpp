@@ -62,6 +62,8 @@ void LiveController::closeLive(const cooper::HttpRequest& request, cooper::HttpR
     int room_id = params["room_id"].get<int>();
     redisConn_->del(REDIS_KEY_LIVE_ROOM + std::to_string(room_id));
     redisConn_->srem(REDIS_KEY_LIVE_ROOM_SET, std::to_string(room_id));
+    redisConn_->del(REDIS_KEY_USER_LIVE_ROOM + std::to_string(userId));
+    redisConn_->del(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(room_id));
 }
 
 void LiveController::getOpenedLives(const HttpRequest& request, HttpResponse& response) {
@@ -145,13 +147,21 @@ void LiveController::enterLive(const cooper::HttpRequest& request, cooper::HttpR
             RETURN_RESPONSE(HTTP_ERROR_CODE, "您是该直播间的主播，已在直播间内")
         }
     }
-    auto ret2 = redisConn_->get(REDIS_KEY_LIVE_ROOM + std::to_string(room_id));
-    if (ret2.has_value()) {
-        auto status = LiveStatus::fromJson(json::parse(ret2.value()));
-        status.viewer_count++;
+    auto ret2 = redisConn_->sismember(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(room_id), std::to_string(userId));
+    if (ret2) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "您已在直播间内")
+    }
+    auto ret3 = redisConn_->get(REDIS_KEY_LIVE_ROOM + std::to_string(room_id));
+    int newViewerCount;
+    if (ret3.has_value()) {
+        auto status = LiveStatus::fromJson(json::parse(ret3.value()));
+        newViewerCount = ++status.viewer_count;
         redisConn_->set(REDIS_KEY_LIVE_ROOM + std::to_string(room_id), status.toJson().dump());
+    } else {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "直播间不存在")
     }
     redisConn_->sadd(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(room_id), std::to_string(userId));
+    updateLiveRoomViewerCount(room_id, newViewerCount, userId);
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "进入成功")
 }
 
@@ -167,17 +177,21 @@ void LiveController::leaveLive(const HttpRequest& request, HttpResponse& respons
     }
     int room_id = params["room_id"].get<int>();
     auto ret1 = redisConn_->get(REDIS_KEY_LIVE_ROOM + std::to_string(room_id));
+    int newViewerCount;
     if (ret1.has_value()) {
         auto status = LiveStatus::fromJson(json::parse(ret1.value()));
-        status.viewer_count--;
+        newViewerCount = --status.viewer_count;
         redisConn_->set(REDIS_KEY_LIVE_ROOM + std::to_string(room_id), status.toJson().dump());
+    } else {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "直播间不存在")
     }
     redisConn_->srem(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(room_id), std::to_string(userId));
+    updateLiveRoomViewerCount(room_id, newViewerCount, userId);
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "离开成功")
 }
 
-void LiveController::handleLiveRoomMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {
-    LOG_DEBUG << "LiveController::handleLiveRoomMsg";
+void LiveController::handleLiveRoomSendMsg(const TcpConnectionPtr& connPtr, const json& params) {
+    LOG_DEBUG << "LiveController::handleLiveRoomSendMsg";
     TCP_CHECK_PARAMS(params, "token", "room_id", "msg")
     std::string token = params["token"].get<std::string>();
     int userId = JwtUtil::parseToken(token);
@@ -192,7 +206,7 @@ void LiveController::handleLiveRoomMsg(const cooper::TcpConnectionPtr& connPtr, 
     std::vector<std::string> viewerIds;
     redisConn_->smembers(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(room_id), std::back_inserter(viewerIds));
     json j;
-    j["type"] = PROTOCOL_TYPE_LIVE_ROOM_MSG;
+    j["type"] = PROTOCOL_TYPE_LIVE_ROOM_MSG_RECV;
     j["room_id"] = room_id;
     j["user_id"] = userId;
     j["msg"] = msg;
@@ -219,6 +233,22 @@ void LiveController::notifyUsersWhenLiveEnd(int roomId) {
             json j;
             j["type"] = PROTOCOL_TYPE_LIVE_ROOM_END;
             j["room_id"] = roomId;
+            connPtr->sendJson(j);
+        }
+    }
+}
+
+void LiveController::updateLiveRoomViewerCount(int roomId, int count, int enterViewerId) {
+    LOG_DEBUG << "LiveController::updateLiveRoomViewerCount";
+    std::vector<std::string> viewerIds;
+    redisConn_->smembers(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(roomId), std::back_inserter(viewerIds));
+    for (const auto& viewerId : viewerIds) {
+        if (IMStore::getInstance()->isOnlineUser(std::stoi(viewerId))) {
+            auto connPtr = IMStore::getInstance()->getTcpConnection(std::stoi(viewerId));
+            json j;
+            j["type"] = PROTOCOL_TYPE_LIVE_ROOM_UPDATE_VIEWER_COUNT;
+            j["room_id"] = roomId;
+            j["viewer_count"] = count;
             connPtr->sendJson(j);
         }
     }

@@ -28,9 +28,11 @@ public:
 
     void leaveLive(const HttpRequest& request, HttpResponse& response);
 
-    void handleLiveRoomMsg(const TcpConnectionPtr& connPtr, const json& params);
+    void handleLiveRoomSendMsg(const TcpConnectionPtr& connPtr, const json& params);
 
     void notifyUsersWhenLiveEnd(int roomId);
+
+    void updateLiveRoomViewerCount(int roomId, int count, int enterViewerId);
 
 private:
     connection_pool<dbng<mysql>>* sqlConnPool_ = nullptr;

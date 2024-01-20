@@ -57,6 +57,7 @@ void IMStore::removeTcpConnectionByConn(const cooper::TcpConnectionPtr& connPtr)
         redisConn_->del(REDIS_KEY_LIVE_ROOM + std::to_string(roomId));
         redisConn_->srem(REDIS_KEY_LIVE_ROOM_SET, std::to_string(roomId));
         redisConn_->del(REDIS_KEY_USER_LIVE_ROOM + std::to_string(userId));
+        redisConn_->del(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(roomId));
         liveController_->notifyUsersWhenLiveEnd(roomId);
     }
     removeOnlineUser(userId);
