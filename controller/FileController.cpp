@@ -211,7 +211,6 @@ void FileController::shardUpload(HttpRequest& request, HttpResponse& response) {
         } else if (flag == FLAG_CONTENT) {
             if (!isExist && fd1 > 0) {
                 write(fd1, data, len);
-                fsync(fd1);
             }
         }
     };
