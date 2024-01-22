@@ -15,7 +15,7 @@ FriendController::FriendController(connection_pool<dbng<mysql>>* sqlConnPool, st
     IMStore::getInstance()->registerFriendController(this);
 }
 
-void FriendController::getAllFriends(const HttpRequest& request, HttpResponse& response) {
+void FriendController::getAllFriends(HttpRequest& request, HttpResponse& response) {
     LOG_DEBUG << "FriendController::getAllFriends";
     json j;
     auto params = json::parse(request.body_);
@@ -39,7 +39,7 @@ void FriendController::getAllFriends(const HttpRequest& request, HttpResponse& r
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取好友列表成功")
 }
 
-void FriendController::getFriendsByIds(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void FriendController::getFriendsByIds(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "FriendController::getFriendsByIds";
     json j;
     auto params = json::parse(request.body_);
@@ -65,7 +65,7 @@ void FriendController::getFriendsByIds(const cooper::HttpRequest& request, coope
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取好友列表成功")
 }
 
-void FriendController::getSyncFriends(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void FriendController::getSyncFriends(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "FriendController::getSyncFriends";
     json j;
     auto params = json::parse(request.body_);
@@ -87,7 +87,7 @@ void FriendController::getSyncFriends(const cooper::HttpRequest& request, cooper
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取同步好友成功")
 }
 
-void FriendController::searchFriend(const HttpRequest& request, HttpResponse& response) {
+void FriendController::searchFriend(HttpRequest& request, HttpResponse& response) {
     LOG_DEBUG << "FriendController::searchFriend";
     json j;
     auto params = json::parse(request.body_);
@@ -128,7 +128,7 @@ void FriendController::searchFriend(const HttpRequest& request, HttpResponse& re
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "搜索成功")
 }
 
-void FriendController::addFriend(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void FriendController::addFriend(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "FriendController::addFriend";
     auto params = json::parse(request.body_);
     json j;
@@ -190,7 +190,7 @@ void FriendController::addFriend(const cooper::HttpRequest& request, cooper::Htt
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "成功发送好友申请")
 }
 
-void FriendController::responseFriendApply(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void FriendController::responseFriendApply(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "FriendController::responseFriendApply";
     auto params = json::parse(request.body_);
     json j;

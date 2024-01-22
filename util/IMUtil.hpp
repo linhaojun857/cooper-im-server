@@ -16,6 +16,8 @@ public:
     static std::string generateRandomFileName(const std::string& fileType);
 
     static std::string getFileType(const std::string& filename);
+
+    static std::string getCurrentTime();
 };
 
 #endif

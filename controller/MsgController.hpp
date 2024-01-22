@@ -18,15 +18,15 @@ public:
 
     void handlePersonSendMsg(const TcpConnectionPtr& connPtr, const json& params);
 
-    void getAllPersonMessages(const HttpRequest& request, HttpResponse& response);
+    void getAllPersonMessages(HttpRequest& request, HttpResponse& response);
 
-    void getSyncPersonMessages(const HttpRequest& request, HttpResponse& response);
+    void getSyncPersonMessages(HttpRequest& request, HttpResponse& response);
 
     void handleGroupSendMsg(const TcpConnectionPtr& connPtr, const json& params);
 
-    void getAllGroupMessages(const HttpRequest& request, HttpResponse& response);
+    void getAllGroupMessages(HttpRequest& request, HttpResponse& response);
 
-    void getSyncGroupMessages(const HttpRequest& request, HttpResponse& response);
+    void getSyncGroupMessages(HttpRequest& request, HttpResponse& response);
 
 private:
     connection_pool<dbng<mysql>>* sqlConnPool_ = nullptr;

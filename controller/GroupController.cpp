@@ -15,7 +15,7 @@ GroupController::GroupController(connection_pool<dbng<mysql>>* sqlConnPool, std:
     IMStore::getInstance()->registerGroupController(this);
 }
 
-void GroupController::createGroup(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void GroupController::createGroup(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "GroupController::createGroup";
     auto params = json::parse(request.body_);
     json j;
@@ -46,7 +46,7 @@ void GroupController::createGroup(const cooper::HttpRequest& request, cooper::Ht
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "创建成功")
 }
 
-void GroupController::searchGroup(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void GroupController::searchGroup(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "GroupController::searchGroup";
     auto params = json::parse(request.body_);
     json j;
@@ -86,7 +86,7 @@ void GroupController::searchGroup(const cooper::HttpRequest& request, cooper::Ht
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "搜索成功")
 }
 
-void GroupController::addGroup(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void GroupController::addGroup(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "GroupController::addGroup";
     auto params = json::parse(request.body_);
     json j;
@@ -159,7 +159,7 @@ void GroupController::addGroup(const cooper::HttpRequest& request, cooper::HttpR
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "成功发送群申请")
 }
 
-void GroupController::responseGroupApply(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void GroupController::responseGroupApply(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "GroupController::responseGroupApply";
     auto params = json::parse(request.body_);
     json j;
@@ -221,7 +221,7 @@ void GroupController::responseGroupApply(const cooper::HttpRequest& request, coo
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "回应GroupApply成功")
 }
 
-void GroupController::getAllGroups(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void GroupController::getAllGroups(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "GroupController::getAllGroups";
     auto params = json::parse(request.body_);
     json j;

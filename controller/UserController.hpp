@@ -15,13 +15,13 @@ class UserController {
 public:
     UserController(connection_pool<dbng<mysql>>* sqlConnPool, std::shared_ptr<Redis> redisConn);
 
-    void getVfCode(const HttpRequest& request, HttpResponse& response);
+    void getVfCode(HttpRequest& request, HttpResponse& response);
 
-    void userLogin(const HttpRequest& request, HttpResponse& response);
+    void userLogin(HttpRequest& request, HttpResponse& response);
 
-    void userRegister(const HttpRequest& request, HttpResponse& response);
+    void userRegister(HttpRequest& request, HttpResponse& response);
 
-    void getSyncState(const HttpRequest& request, HttpResponse& response);
+    void getSyncState(HttpRequest& request, HttpResponse& response);
 
     void handleAuthMsg(const TcpConnectionPtr& connPtr, const json& params);
 

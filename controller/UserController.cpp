@@ -15,10 +15,10 @@ UserController::UserController(connection_pool<dbng<mysql>>* sqlConnPool, std::s
     IMStore::getInstance()->registerUserController(this);
 }
 
-void UserController::getVfCode(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void UserController::getVfCode(cooper::HttpRequest& request, cooper::HttpResponse& response) {
 }
 
-void UserController::userLogin(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void UserController::userLogin(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "UserController::userLogin";
     json j;
     auto params = json::parse(request.body_);
@@ -44,7 +44,7 @@ void UserController::userLogin(const cooper::HttpRequest& request, cooper::HttpR
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "登录成功")
 }
 
-void UserController::userRegister(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void UserController::userRegister(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "UserController::userRegister";
     json j;
     auto params = json::parse(request.body_);
@@ -68,7 +68,7 @@ void UserController::userRegister(const cooper::HttpRequest& request, cooper::Ht
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "注册成功")
 }
 
-void UserController::getSyncState(const HttpRequest& request, HttpResponse& response) {
+void UserController::getSyncState(HttpRequest& request, HttpResponse& response) {
     LOG_DEBUG << "UserController::getSyncState";
     json j;
     auto params = json::parse(request.body_);

@@ -15,7 +15,7 @@ LiveController::LiveController(connection_pool<dbng<mysql>>* sqlConnPool, std::s
     IMStore::getInstance()->registerLiveController(this);
 }
 
-void LiveController::openLive(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void LiveController::openLive(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "LiveController::openLive";
     auto params = json::parse(request.body_);
     json j;
@@ -49,7 +49,7 @@ void LiveController::openLive(const cooper::HttpRequest& request, cooper::HttpRe
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "开启成功")
 }
 
-void LiveController::closeLive(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void LiveController::closeLive(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "LiveController::closeLive";
     auto params = json::parse(request.body_);
     json j;
@@ -66,7 +66,7 @@ void LiveController::closeLive(const cooper::HttpRequest& request, cooper::HttpR
     redisConn_->del(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(room_id));
 }
 
-void LiveController::getOpenedLives(const HttpRequest& request, HttpResponse& response) {
+void LiveController::getOpenedLives(HttpRequest& request, HttpResponse& response) {
     LOG_DEBUG << "LiveController::getOpenedLives";
     json j;
     GET_SQL_CONN_H(sqlConn)
@@ -100,7 +100,7 @@ void LiveController::getOpenedLives(const HttpRequest& request, HttpResponse& re
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
 }
 
-void LiveController::getOpenedLiveInfoByRoomId(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void LiveController::getOpenedLiveInfoByRoomId(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "LiveController::getOpenedLiveInfoByRoomId";
     auto params = json::parse(request.body_);
     json j;
@@ -130,7 +130,7 @@ void LiveController::getOpenedLiveInfoByRoomId(const cooper::HttpRequest& reques
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
 }
 
-void LiveController::enterLive(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void LiveController::enterLive(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "LiveController::enterLive";
     auto params = json::parse(request.body_);
     json j;
@@ -165,7 +165,7 @@ void LiveController::enterLive(const cooper::HttpRequest& request, cooper::HttpR
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "进入成功")
 }
 
-void LiveController::leaveLive(const HttpRequest& request, HttpResponse& response) {
+void LiveController::leaveLive(HttpRequest& request, HttpResponse& response) {
     LOG_DEBUG << "LiveController::leaveLive";
     auto params = json::parse(request.body_);
     json j;

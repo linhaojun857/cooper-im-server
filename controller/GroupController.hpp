@@ -16,15 +16,15 @@ class GroupController {
 public:
     GroupController(connection_pool<dbng<mysql>>* sqlConnPool, std::shared_ptr<Redis> redisConn);
 
-    void createGroup(const HttpRequest& request, HttpResponse& response);
+    void createGroup(HttpRequest& request, HttpResponse& response);
 
-    void searchGroup(const HttpRequest& request, HttpResponse& response);
+    void searchGroup(HttpRequest& request, HttpResponse& response);
 
-    void addGroup(const HttpRequest& request, HttpResponse& response);
+    void addGroup(HttpRequest& request, HttpResponse& response);
 
-    void responseGroupApply(const HttpRequest& request, HttpResponse& response);
+    void responseGroupApply(HttpRequest& request, HttpResponse& response);
 
-    void getAllGroups(const HttpRequest& request, HttpResponse& response);
+    void getAllGroups(HttpRequest& request, HttpResponse& response);
 
 private:
     connection_pool<dbng<mysql>>* sqlConnPool_ = nullptr;

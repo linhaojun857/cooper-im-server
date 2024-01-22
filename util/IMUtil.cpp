@@ -81,3 +81,12 @@ std::string IMUtil::getFileType(const std::string& filename) {
     }
     return filename.substr(pos + 1);
 }
+
+std::string IMUtil::getCurrentTime() {
+    auto now = std::chrono::system_clock::now();
+    time_t nowTime = std::chrono::system_clock::to_time_t(now);
+    struct tm* current_time = std::localtime(&nowTime);
+    char buf[32];
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", current_time);
+    return buf;
+}

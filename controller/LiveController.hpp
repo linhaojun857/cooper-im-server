@@ -16,17 +16,17 @@ class LiveController {
 public:
     LiveController(connection_pool<dbng<mysql>>* sqlConnPool, std::shared_ptr<Redis> redisConn);
 
-    void openLive(const HttpRequest& request, HttpResponse& response);
+    void openLive(HttpRequest& request, HttpResponse& response);
 
-    void closeLive(const HttpRequest& request, HttpResponse& response);
+    void closeLive(HttpRequest& request, HttpResponse& response);
 
-    void getOpenedLives(const HttpRequest& request, HttpResponse& response);
+    void getOpenedLives(HttpRequest& request, HttpResponse& response);
 
-    void getOpenedLiveInfoByRoomId(const HttpRequest& request, HttpResponse& response);
+    void getOpenedLiveInfoByRoomId(HttpRequest& request, HttpResponse& response);
 
-    void enterLive(const HttpRequest& request, HttpResponse& response);
+    void enterLive(HttpRequest& request, HttpResponse& response);
 
-    void leaveLive(const HttpRequest& request, HttpResponse& response);
+    void leaveLive(HttpRequest& request, HttpResponse& response);
 
     void handleLiveRoomSendMsg(const TcpConnectionPtr& connPtr, const json& params);
 

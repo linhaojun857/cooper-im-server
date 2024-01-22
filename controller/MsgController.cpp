@@ -82,7 +82,7 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
     }
 }
 
-void MsgController::getAllPersonMessages(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void MsgController::getAllPersonMessages(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "MsgController::getAllPersonMessages";
     auto params = json::parse(request.body_);
     json j;
@@ -105,7 +105,7 @@ void MsgController::getAllPersonMessages(const cooper::HttpRequest& request, coo
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
 }
 
-void MsgController::getSyncPersonMessages(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void MsgController::getSyncPersonMessages(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "MsgController::getSyncPersonMessages";
     auto params = json::parse(request.body_);
     json j;
@@ -196,7 +196,7 @@ void MsgController::handleGroupSendMsg(const cooper::TcpConnectionPtr& connPtr, 
     }
 }
 
-void MsgController::getAllGroupMessages(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void MsgController::getAllGroupMessages(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "MsgController::getAllGroupMessages";
     auto params = json::parse(request.body_);
     json j;
@@ -220,7 +220,7 @@ void MsgController::getAllGroupMessages(const cooper::HttpRequest& request, coop
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取成功")
 }
 
-void MsgController::getSyncGroupMessages(const cooper::HttpRequest& request, cooper::HttpResponse& response) {
+void MsgController::getSyncGroupMessages(cooper::HttpRequest& request, cooper::HttpResponse& response) {
     LOG_DEBUG << "MsgController::getSyncGroupMessages";
     auto params = json::parse(request.body_);
     json j;
