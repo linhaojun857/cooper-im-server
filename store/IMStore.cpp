@@ -34,23 +34,23 @@ bool IMStore::isOnlineUser(int id) {
     return redisConn_->hexists(REDIS_KEY_ONLINE_USERS, std::to_string(id));
 }
 
-void IMStore::addTcpConnection(int id, const cooper::TcpConnectionPtr& connPtr) {
-    tcpConnections_[id] = connPtr;
-    tcpConnectionsReverse_[connPtr] = id;
+void IMStore::addBusinessTcpConnection(int id, const TcpConnectionPtr& connPtr) {
+    businessTcpConnections_[id] = connPtr;
+    businessTcpConnectionsReverse_[connPtr] = id;
 }
 
-TcpConnectionPtr IMStore::getTcpConnection(int id) {
-    return tcpConnections_[id];
+TcpConnectionPtr IMStore::getBusinessTcpConnection(int id) {
+    return businessTcpConnections_[id];
 }
 
-void IMStore::removeTcpConnectionById(int id) {
+void IMStore::removeBusinessTcpConnectionById(int id) {
     removeOnlineUser(id);
-    tcpConnectionsReverse_.erase(tcpConnections_[id]);
-    tcpConnections_.erase(id);
+    businessTcpConnectionsReverse_.erase(businessTcpConnections_[id]);
+    businessTcpConnections_.erase(id);
 }
 
-void IMStore::removeTcpConnectionByConn(const cooper::TcpConnectionPtr& connPtr) {
-    int userId = tcpConnectionsReverse_[connPtr];
+void IMStore::removeBusinessTcpConnectionByConn(const TcpConnectionPtr& connPtr) {
+    int userId = businessTcpConnectionsReverse_[connPtr];
     auto ret = redisConn_->get(REDIS_KEY_USER_LIVE_ROOM + std::to_string(userId));
     if (ret.has_value()) {
         int roomId = std::stoi(ret.value());
@@ -61,12 +61,51 @@ void IMStore::removeTcpConnectionByConn(const cooper::TcpConnectionPtr& connPtr)
         liveController_->notifyUsersWhenLiveEnd(roomId);
     }
     removeOnlineUser(userId);
-    tcpConnections_.erase(userId);
-    tcpConnectionsReverse_.erase(connPtr);
+    businessTcpConnections_.erase(userId);
+    businessTcpConnectionsReverse_.erase(connPtr);
 }
 
-bool IMStore::haveTcpConnection(int id) {
-    return tcpConnections_.find(id) != tcpConnections_.end();
+bool IMStore::haveBusinessTcpConnection(int id) {
+    return businessTcpConnections_.find(id) != businessTcpConnections_.end();
+}
+
+void IMStore::addMediaTcpConnection(int id, const TcpConnectionPtr& connPtr) {
+    mediaTcpConnections_[id] = connPtr;
+    mediaTcpConnectionsReverse_[connPtr] = id;
+}
+
+TcpConnectionPtr IMStore::getMediaTcpConnection(int id) {
+    return mediaTcpConnections_[id];
+}
+
+void IMStore::removeMediaTcpConnectionById(int id) {
+    mediaTcpConnectionsReverse_.erase(mediaTcpConnections_[id]);
+    mediaTcpConnections_.erase(id);
+}
+
+void IMStore::removeMediaTcpConnectionByConn(const TcpConnectionPtr& connPtr) {
+    int userId = mediaTcpConnectionsReverse_[connPtr];
+    auto ret = redisConn_->get(REDIS_KEY_VIDEO_CALL + std::to_string(userId));
+    if (ret.has_value()) {
+        int peerId = std::stoi(ret.value());
+        redisConn_->del(REDIS_KEY_VIDEO_CALL + std::to_string(userId));
+        redisConn_->del(REDIS_KEY_VIDEO_CALL + std::to_string(peerId));
+        if (IMStore::getInstance()->haveBusinessTcpConnection(peerId)) {
+            auto toConnPtr = IMStore::getInstance()->getBusinessTcpConnection(peerId);
+            json j;
+            j["type"] = PROTOCOL_TYPE_VIDEO_CALL_END;
+            j["from_id"] = userId;
+            j["to_id"] = peerId;
+            toConnPtr->sendJson(j);
+            LOG_DEBUG << "send video call end msg to peer";
+        }
+    }
+    mediaTcpConnections_.erase(userId);
+    mediaTcpConnectionsReverse_.erase(connPtr);
+}
+
+bool IMStore::haveMediaTcpConnection(int id) {
+    return mediaTcpConnections_.find(id) != mediaTcpConnections_.end();
 }
 
 void IMStore::registerFileController(FileController* fileController) {
@@ -91,4 +130,8 @@ void IMStore::registerMsgController(MsgController* msgController) {
 
 void IMStore::registerUserController(UserController* userController) {
     userController_ = userController;
+}
+
+void IMStore::registerAVCallController(AVCallController* avCallController) {
+    avCallController_ = avCallController;
 }

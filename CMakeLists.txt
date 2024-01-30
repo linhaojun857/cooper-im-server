@@ -25,6 +25,8 @@ add_library(cooper-im-server-lib
         controller/GroupController.cpp
         controller/LiveController.hpp
         controller/LiveController.cpp
+        controller/AVCallController.hpp
+        controller/AVCallController.cpp
         # define
         define/IMDefine.hpp
         # store

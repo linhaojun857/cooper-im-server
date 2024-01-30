@@ -169,8 +169,8 @@ void FriendController::addFriend(cooper::HttpRequest& request, cooper::HttpRespo
         sqlConn->insert(notify);
         notify.to_id = peerId;
         sqlConn->insert(notify);
-        if (IMStore::getInstance()->haveTcpConnection(peerId)) {
-            auto peerConnPtr = IMStore::getInstance()->getTcpConnection(peerId);
+        if (IMStore::getInstance()->haveBusinessTcpConnection(peerId)) {
+            auto peerConnPtr = IMStore::getInstance()->getBusinessTcpConnection(peerId);
             json toPeerJson = fa.toJson();
             toPeerJson["type"] = PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_P;
             peerConnPtr->sendJson(toPeerJson);
@@ -228,7 +228,7 @@ void FriendController::responseFriendApply(cooper::HttpRequest& request, cooper:
         sqlConn->insert(notify);
         notify.to_id = fa[0].from_id;
         sqlConn->insert(notify);
-        if (!IMStore::getInstance()->haveTcpConnection(userId)) {
+        if (!IMStore::getInstance()->haveBusinessTcpConnection(userId)) {
             sqlConn->rollback();
             RETURN_RESPONSE(HTTP_ERROR_CODE, "用户未登录")
         }
@@ -238,10 +238,10 @@ void FriendController::responseFriendApply(cooper::HttpRequest& request, cooper:
             j1["type"] = PROTOCOL_TYPE_FRIEND_ENTITY;
             j1["status"] = SYNC_DATA_FRIEND_ENTITY_INSERT;
             j1["session_id"] = session_id;
-            IMStore::getInstance()->getTcpConnection(userId)->sendJson(j1);
+            IMStore::getInstance()->getBusinessTcpConnection(userId)->sendJson(j1);
         }
-        if (IMStore::getInstance()->haveTcpConnection(fa[0].from_id)) {
-            auto connPtr = IMStore::getInstance()->getTcpConnection(fa[0].from_id);
+        if (IMStore::getInstance()->haveBusinessTcpConnection(fa[0].from_id)) {
+            auto connPtr = IMStore::getInstance()->getBusinessTcpConnection(fa[0].from_id);
             json toUserJson = fa[0].toJson();
             toUserJson["type"] = PROTOCOL_TYPE_FRIEND_APPLY_NOTIFY_I;
             connPtr->sendJson(toUserJson);

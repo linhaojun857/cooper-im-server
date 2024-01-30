@@ -90,8 +90,8 @@ void UserController::getSyncState(HttpRequest& request, HttpResponse& response) 
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取同步状态成功")
 }
 
-void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {
-    LOG_DEBUG << "UserController::handleAuthMsg";
+void UserController::handleBusinessAuthMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params) {
+    LOG_DEBUG << "UserController::handleBusinessAuthMsg";
     void(this);
     if (!params.contains("token")) {
         RETURN_ERROR("缺少token")
@@ -101,7 +101,7 @@ void UserController::handleAuthMsg(const cooper::TcpConnectionPtr& connPtr, cons
     if (userId == -1) {
         RETURN_ERROR("无效token")
     }
-    IMStore::getInstance()->addTcpConnection(userId, connPtr);
+    IMStore::getInstance()->addBusinessTcpConnection(userId, connPtr);
 }
 
 void UserController::handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, const json& params) {

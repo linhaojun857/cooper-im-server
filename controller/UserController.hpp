@@ -23,7 +23,7 @@ public:
 
     void getSyncState(HttpRequest& request, HttpResponse& response);
 
-    void handleAuthMsg(const TcpConnectionPtr& connPtr, const json& params);
+    void handleBusinessAuthMsg(const cooper::TcpConnectionPtr& connPtr, const nlohmann::json& params);
 
     void handleSyncCompleteMsg(const TcpConnectionPtr& connPtr, const json& params);
 

@@ -64,6 +64,7 @@ void LiveController::closeLive(cooper::HttpRequest& request, cooper::HttpRespons
     redisConn_->srem(REDIS_KEY_LIVE_ROOM_SET, std::to_string(room_id));
     redisConn_->del(REDIS_KEY_USER_LIVE_ROOM + std::to_string(userId));
     redisConn_->del(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(room_id));
+    notifyUsersWhenLiveEnd(room_id);
 }
 
 void LiveController::getOpenedLives(HttpRequest& request, HttpResponse& response) {
@@ -217,7 +218,7 @@ void LiveController::handleLiveRoomSendMsg(const TcpConnectionPtr& connPtr, cons
             continue;
         }
         if (IMStore::getInstance()->isOnlineUser(std::stoi(viewerId))) {
-            auto viewerConnPtr = IMStore::getInstance()->getTcpConnection(std::stoi(viewerId));
+            auto viewerConnPtr = IMStore::getInstance()->getBusinessTcpConnection(std::stoi(viewerId));
             viewerConnPtr->sendJson(j);
         }
     }
@@ -229,7 +230,7 @@ void LiveController::notifyUsersWhenLiveEnd(int roomId) {
     redisConn_->smembers(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(roomId), std::back_inserter(viewerIds));
     for (const auto& viewerId : viewerIds) {
         if (IMStore::getInstance()->isOnlineUser(std::stoi(viewerId))) {
-            auto connPtr = IMStore::getInstance()->getTcpConnection(std::stoi(viewerId));
+            auto connPtr = IMStore::getInstance()->getBusinessTcpConnection(std::stoi(viewerId));
             json j;
             j["type"] = PROTOCOL_TYPE_LIVE_ROOM_END;
             j["room_id"] = roomId;
@@ -244,7 +245,7 @@ void LiveController::updateLiveRoomViewerCount(int roomId, int count, int enterV
     redisConn_->smembers(REDIS_KEY_LIVE_ROOM_VIEWER_SET + std::to_string(roomId), std::back_inserter(viewerIds));
     for (const auto& viewerId : viewerIds) {
         if (IMStore::getInstance()->isOnlineUser(std::stoi(viewerId))) {
-            auto connPtr = IMStore::getInstance()->getTcpConnection(std::stoi(viewerId));
+            auto connPtr = IMStore::getInstance()->getBusinessTcpConnection(std::stoi(viewerId));
             json j;
             j["type"] = PROTOCOL_TYPE_LIVE_ROOM_UPDATE_VIEWER_COUNT;
             j["room_id"] = roomId;

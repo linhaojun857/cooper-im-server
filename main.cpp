@@ -8,6 +8,7 @@
 #include <mysql.hpp>
 #include <regex>
 
+#include "controller/AVCallController.hpp"
 #include "controller/FileController.hpp"
 #include "controller/FriendController.hpp"
 #include "controller/GroupController.hpp"
@@ -27,9 +28,15 @@
         objectPtr->method(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));   \
     });
 
-#define ADD_TCP_ENDPOINT(type, controller, method)                                                 \
-    appTcpServer.registerProtocolHandler(type, [objectPtr = &controller](auto&& PH1, auto&& PH2) { \
-        objectPtr->method(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));     \
+#define ADD_BUSINESS_TCP_ENDPOINT(type, controller, method)                                             \
+    businessTcpServer.registerBusinessHandler(type, [objectPtr = &controller](auto&& PH1, auto&& PH2) { \
+        objectPtr->method(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));          \
+    });
+
+#define ADD_MEDIA_TCP_ENDPOINT(type, controller, method)                                                      \
+    mediaTcpServer.registerMediaHandler(type, [objectPtr = &controller](auto&& PH1, auto&& PH2, auto&& PH3) { \
+        objectPtr->method(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2),                 \
+                          std::forward<decltype(PH3)>(PH3));                                                  \
     });
 
 using namespace cooper;
@@ -47,6 +54,7 @@ int main() {
         [objectPtr = &writer] {
             objectPtr->flushAll();
         });
+
     connection_pool<dbng<mysql>>::instance().init(MYSQL_CONNECTION_POOL_SIZE, MYSQL_SERVER_IP, MYSQL_SERVER_USERNAME,
                                                   MYSQL_SERVER_PASSWORD, MYSQL_SERVER_DATABASE, MYSQL_SERVER_TIMEOUT,
                                                   MYSQL_SERVER_PORT);
@@ -68,6 +76,7 @@ int main() {
             return -1;
         }
     }
+
     ConnectionOptions connectionOptions;
     connectionOptions.host = REDIS_SERVER_IP;
     connectionOptions.port = REDIS_SERVER_PORT;
@@ -77,26 +86,46 @@ int main() {
     connectionPoolOptions.size = REDIS_CONNECTION_POOL_SIZE;
     std::shared_ptr<Redis> redisConn = std::make_shared<Redis>(connectionOptions, connectionPoolOptions);
     IMStore::getInstance()->setRedisConn(redisConn);
+
     UserController userController(sqlConnPool, redisConn);
     FriendController friendController(sqlConnPool, redisConn);
     GroupController groupController(sqlConnPool, redisConn);
     MsgController msgController(sqlConnPool, redisConn);
     FileController fileController(sqlConnPool, redisConn);
     LiveController liveController(sqlConnPool, redisConn);
-    std::thread appTcpServerThread([&]() {
-        AppTcpServer appTcpServer(8888, false);
-        appTcpServer.setConnectionCallback([&](const TcpConnectionPtr& connPtr) {
+    AVCallController avCallController(sqlConnPool, redisConn);
+
+    std::thread businessTcpServerThread([&]() {
+        AppTcpServer businessTcpServer(8888, false);
+        businessTcpServer.setConnectionCallback([&](const TcpConnectionPtr& connPtr) {
             if (connPtr->disconnected()) {
-                IMStore::getInstance()->removeTcpConnectionByConn(connPtr);
+                IMStore::getInstance()->removeBusinessTcpConnectionByConn(connPtr);
             }
         });
-        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_AUTH_MSG, userController, handleAuthMsg)
-        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_SYNC_COMPLETE_MESSAGE, userController, handleSyncCompleteMsg)
-        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_PERSON_MESSAGE_SEND, msgController, handlePersonSendMsg)
-        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_GROUP_MESSAGE_SEND, msgController, handleGroupSendMsg)
-        ADD_TCP_ENDPOINT(PROTOCOL_TYPE_LIVE_ROOM_MSG_SEND, liveController, handleLiveRoomSendMsg)
-        appTcpServer.start();
+        ADD_BUSINESS_TCP_ENDPOINT(PROTOCOL_TYPE_BUSINESS_AUTH_MSG, userController, handleBusinessAuthMsg)
+        ADD_BUSINESS_TCP_ENDPOINT(PROTOCOL_TYPE_SYNC_COMPLETE_MESSAGE, userController, handleSyncCompleteMsg)
+        ADD_BUSINESS_TCP_ENDPOINT(PROTOCOL_TYPE_PERSON_MESSAGE_SEND, msgController, handlePersonSendMsg)
+        ADD_BUSINESS_TCP_ENDPOINT(PROTOCOL_TYPE_GROUP_MESSAGE_SEND, msgController, handleGroupSendMsg)
+        ADD_BUSINESS_TCP_ENDPOINT(PROTOCOL_TYPE_LIVE_ROOM_MSG_SEND, liveController, handleLiveRoomSendMsg)
+        ADD_BUSINESS_TCP_ENDPOINT(PROTOCOL_TYPE_VIDEO_CALL_REQUEST, avCallController, handleVideoCallRequest)
+        ADD_BUSINESS_TCP_ENDPOINT(PROTOCOL_TYPE_VIDEO_CALL_RESPONSE, avCallController, handleVideoCallResponse)
+        businessTcpServer.start();
     });
+
+    std::thread mediaTcpServerThread([&]() {
+        AppTcpServer mediaTcpServer(12345, false);
+        mediaTcpServer.setMode(MEDIA_MODE);
+        mediaTcpServer.setConnectionCallback([&](const TcpConnectionPtr& connPtr) {
+            if (connPtr->disconnected()) {
+                IMStore::getInstance()->removeMediaTcpConnectionByConn(connPtr);
+            }
+        });
+        ADD_MEDIA_TCP_ENDPOINT(PROTOCOL_TYPE_MEDIA_AUTH_MSG, avCallController, handleMediaAuthMsg)
+        ADD_MEDIA_TCP_ENDPOINT(PROTOCOL_TYPE_VIDEO_CALL_AUDIO_FRAME, avCallController, handleVideoCallAudioFrame)
+        ADD_MEDIA_TCP_ENDPOINT(PROTOCOL_TYPE_VIDEO_CALL_VIDEO_FRAME, avCallController, handleVideoCallVideoFrame)
+        mediaTcpServer.start(10);
+    });
+
     std::thread httpServerThread([&]() {
         HttpServer httpServer(9999);
         ADD_HTTP_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static")
@@ -134,7 +163,9 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/live/getOpenedLiveInfoByRoomId", liveController, getOpenedLiveInfoByRoomId)
         httpServer.start();
     });
-    appTcpServerThread.join();
+
+    businessTcpServerThread.join();
+    mediaTcpServerThread.join();
     httpServerThread.join();
     return 0;
 }

@@ -138,8 +138,8 @@ void GroupController::addGroup(cooper::HttpRequest& request, cooper::HttpRespons
         sqlConn->insert(notify);
         notify.to_id = ownerId;
         sqlConn->insert(notify);
-        if (IMStore::getInstance()->haveTcpConnection(ownerId)) {
-            auto ownerConnPtr = IMStore::getInstance()->getTcpConnection(ownerId);
+        if (IMStore::getInstance()->haveBusinessTcpConnection(ownerId)) {
+            auto ownerConnPtr = IMStore::getInstance()->getBusinessTcpConnection(ownerId);
             json toOwnerJson = ga.toJson();
             toOwnerJson["type"] = PROTOCOL_TYPE_GROUP_APPLY_NOTIFY_P;
             ownerConnPtr->sendJson(toOwnerJson);
@@ -194,8 +194,8 @@ void GroupController::responseGroupApply(cooper::HttpRequest& request, cooper::H
         sqlConn->insert(notify);
         notify.to_id = ga[0].from_id;
         sqlConn->insert(notify);
-        if (IMStore::getInstance()->haveTcpConnection(ga[0].from_id)) {
-            auto connPtr = IMStore::getInstance()->getTcpConnection(ga[0].from_id);
+        if (IMStore::getInstance()->haveBusinessTcpConnection(ga[0].from_id)) {
+            auto connPtr = IMStore::getInstance()->getBusinessTcpConnection(ga[0].from_id);
             json toUserJson = ga[0].toJson();
             toUserJson["type"] = PROTOCOL_TYPE_GROUP_APPLY_NOTIFY_I;
             connPtr->sendJson(toUserJson);

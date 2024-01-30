@@ -57,8 +57,8 @@ void MsgController::handlePersonSendMsg(const TcpConnectionPtr& connPtr, const j
     j1["type"] = PROTOCOL_TYPE_PERSON_MESSAGE_SEND;
     j1["status"] = SYNC_DATA_PERSON_MESSAGE_INSERT;
     connPtr->sendJson(j1);
-    if (IMStore::getInstance()->haveTcpConnection(personMessage.to_id)) {
-        auto toConnPtr = IMStore::getInstance()->getTcpConnection(personMessage.to_id);
+    if (IMStore::getInstance()->haveBusinessTcpConnection(personMessage.to_id)) {
+        auto toConnPtr = IMStore::getInstance()->getBusinessTcpConnection(personMessage.to_id);
         j1["type"] = PROTOCOL_TYPE_PERSON_MESSAGE_RECV;
         j1["status"] = SYNC_DATA_PERSON_MESSAGE_INSERT;
         toConnPtr->sendJson(j1);
@@ -175,8 +175,8 @@ void MsgController::handleGroupSendMsg(const cooper::TcpConnectionPtr& connPtr, 
         if (memberId == userId) {
             continue;
         }
-        if (IMStore::getInstance()->haveTcpConnection(memberId)) {
-            auto toConnPtr = IMStore::getInstance()->getTcpConnection(memberId);
+        if (IMStore::getInstance()->haveBusinessTcpConnection(memberId)) {
+            auto toConnPtr = IMStore::getInstance()->getBusinessTcpConnection(memberId);
             toConnPtr->sendJson(j1);
         } else {
             redisConn_->lpush(REDIS_KEY_GROUP_OFFLINE_MSG + std::to_string(memberId), j1.dump());

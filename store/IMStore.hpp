@@ -6,6 +6,7 @@
 #include <cooper/net/TcpConnection.hpp>
 #include <unordered_map>
 
+#include "controller/AVCallController.hpp"
 #include "controller/FileController.hpp"
 #include "controller/FriendController.hpp"
 #include "controller/GroupController.hpp"
@@ -35,15 +36,25 @@ public:
 
     bool isOnlineUser(int id);
 
-    void addTcpConnection(int id, const TcpConnectionPtr& connPtr);
+    void addBusinessTcpConnection(int id, const TcpConnectionPtr& connPtr);
 
-    TcpConnectionPtr getTcpConnection(int id);
+    TcpConnectionPtr getBusinessTcpConnection(int id);
 
-    void removeTcpConnectionById(int id);
+    void removeBusinessTcpConnectionById(int id);
 
-    void removeTcpConnectionByConn(const TcpConnectionPtr& connPtr);
+    void removeBusinessTcpConnectionByConn(const TcpConnectionPtr& connPtr);
 
-    bool haveTcpConnection(int id);
+    bool haveBusinessTcpConnection(int id);
+
+    void addMediaTcpConnection(int id, const TcpConnectionPtr& connPtr);
+
+    TcpConnectionPtr getMediaTcpConnection(int id);
+
+    void removeMediaTcpConnectionById(int id);
+
+    void removeMediaTcpConnectionByConn(const TcpConnectionPtr& connPtr);
+
+    bool haveMediaTcpConnection(int id);
 
     void registerFileController(FileController* fileController);
 
@@ -57,16 +68,21 @@ public:
 
     void registerUserController(UserController* userController);
 
+    void registerAVCallController(AVCallController* avCallController);
+
 private:
     std::shared_ptr<Redis> redisConn_;
-    std::unordered_map<int, TcpConnectionPtr> tcpConnections_;
-    std::unordered_map<TcpConnectionPtr, int> tcpConnectionsReverse_;
+    std::unordered_map<int, TcpConnectionPtr> businessTcpConnections_;
+    std::unordered_map<TcpConnectionPtr, int> businessTcpConnectionsReverse_;
+    std::unordered_map<int, TcpConnectionPtr> mediaTcpConnections_;
+    std::unordered_map<TcpConnectionPtr, int> mediaTcpConnectionsReverse_;
     FileController* fileController_ = nullptr;
     FriendController* friendController_ = nullptr;
     GroupController* groupController_ = nullptr;
     LiveController* liveController_ = nullptr;
     MsgController* msgController_ = nullptr;
     UserController* userController_ = nullptr;
+    AVCallController* avCallController_ = nullptr;
 };
 
 #endif
