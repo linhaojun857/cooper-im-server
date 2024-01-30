@@ -3,6 +3,7 @@
 #include <connection_pool.hpp>
 #include <cooper/net/AppTcpServer.hpp>
 #include <cooper/net/HttpServer.hpp>
+#include <cooper/net/TcpConnectionImpl.hpp>
 #include <cooper/util/AsyncLogWriter.hpp>
 #include <dbng.hpp>
 #include <mysql.hpp>
@@ -113,17 +114,23 @@ int main() {
     });
 
     std::thread mediaTcpServerThread([&]() {
-        AppTcpServer mediaTcpServer(12345, false);
+        AppTcpServer mediaTcpServer(12121, false);
         mediaTcpServer.setMode(MEDIA_MODE);
         mediaTcpServer.setConnectionCallback([&](const TcpConnectionPtr& connPtr) {
             if (connPtr->disconnected()) {
                 IMStore::getInstance()->removeMediaTcpConnectionByConn(connPtr);
             }
         });
+        mediaTcpServer.setSockOptCallback([](int sockfd) {
+            int sendBufSize = 8 * 1024 * 1024;
+            setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (const char*)&sendBufSize, sizeof(sendBufSize));
+            int recvBufSize = 8 * 1024 * 1024;
+            setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, (const char*)&recvBufSize, sizeof(recvBufSize));
+        });
         ADD_MEDIA_TCP_ENDPOINT(PROTOCOL_TYPE_MEDIA_AUTH_MSG, avCallController, handleMediaAuthMsg)
         ADD_MEDIA_TCP_ENDPOINT(PROTOCOL_TYPE_VIDEO_CALL_AUDIO_FRAME, avCallController, handleVideoCallAudioFrame)
         ADD_MEDIA_TCP_ENDPOINT(PROTOCOL_TYPE_VIDEO_CALL_VIDEO_FRAME, avCallController, handleVideoCallVideoFrame)
-        mediaTcpServer.start(10);
+        mediaTcpServer.start();
     });
 
     std::thread httpServerThread([&]() {

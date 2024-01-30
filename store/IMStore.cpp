@@ -97,7 +97,6 @@ void IMStore::removeMediaTcpConnectionByConn(const TcpConnectionPtr& connPtr) {
             j["from_id"] = userId;
             j["to_id"] = peerId;
             toConnPtr->sendJson(j);
-            LOG_DEBUG << "send video call end msg to peer";
         }
     }
     mediaTcpConnections_.erase(userId);
