@@ -162,6 +162,23 @@ void AddGroupMessageTestData(std::shared_ptr<dbng<mysql>>& sqlConn) {
     }
 }
 
+void AddPyqTestData(std::shared_ptr<dbng<mysql>>& sqlConn) {
+    for (int i = 1; i <= 20; ++i) {
+        Pyq pyq;
+        pyq.id = 0;
+        pyq.user_id = i;
+        pyq.content = "这是朋友圈测试消息" + std::to_string(i);
+        std::vector<std::string> imageUrls;
+        imageUrls.emplace_back("http://localhost:9999/static/upload/1/41acb7102a864437a83c57c54e796463.jpg");
+        imageUrls.emplace_back("http://localhost:9999/static/upload/1/b51728df438744e394442f5de16aee9b.jpg");
+        imageUrls.emplace_back("http://localhost:9999/static/upload/1/3cf76842b29e43e0831581ec3c309917.jpg");
+        json j = imageUrls;
+        pyq.image_urls = j.dump();
+        pyq.timestamp = time(nullptr) - i * 100000;
+        sqlConn->insert(pyq);
+    }
+}
+
 int main() {
     std::shared_ptr<dbng<mysql>> sqlConn = std::make_shared<dbng<mysql>>();
     if (!sqlConn->connect(MYSQL_SERVER_IP, MYSQL_SERVER_USERNAME, MYSQL_SERVER_PASSWORD, MYSQL_SERVER_DATABASE)) {
@@ -176,7 +193,9 @@ int main() {
         !sqlConn->create_datatable<Group>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<UserGroup>(ormpp_auto_key{"id"}) ||
         !sqlConn->create_datatable<GroupApply>(ormpp_auto_key{"id"}) ||
-        !sqlConn->create_datatable<GroupMessage>(ormpp_auto_key{"id"})) {
+        !sqlConn->create_datatable<GroupMessage>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<Pyq>(ormpp_auto_key{"id"}) ||
+        !sqlConn->create_datatable<PyqComment>(ormpp_auto_key{"id"})) {
         LOG_ERROR << "create table failed";
         return -1;
     }
@@ -188,6 +207,6 @@ int main() {
     std::shared_ptr<Redis> redisConn = std::make_shared<Redis>(connectionOptions);
     IMStore::getInstance()->setRedisConn(redisConn);
 
-    AddGroupMessageTestData(sqlConn);
+    AddPyqTestData(sqlConn);
     return 0;
 }

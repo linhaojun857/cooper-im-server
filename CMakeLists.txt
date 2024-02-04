@@ -27,6 +27,8 @@ add_library(cooper-im-server-lib
         controller/LiveController.cpp
         controller/AVCallController.hpp
         controller/AVCallController.cpp
+        controller/PyqController.hpp
+        controller/PyqController.cpp
         # define
         define/IMDefine.hpp
         # store

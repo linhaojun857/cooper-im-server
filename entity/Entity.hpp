@@ -694,4 +694,111 @@ struct LiveRoomDTO {
 
 REFLECTION(LiveRoomDTO, id, owner_id, owner_nickname, owner_avatar, name, cover, viewer_count)
 
+struct Pyq {
+    int id = 0;
+    int user_id = 0;
+    std::string content;
+    // 存数组json序列化后的字符串
+    std::string image_urls;
+    time_t timestamp = 0;
+
+    Pyq() = default;
+
+    Pyq(int id, int user_id, const std::string& content, const std::string& image_urls, time_t timestamp) {
+        this->id = id;
+        this->user_id = user_id;
+        this->content = content;
+        this->image_urls = image_urls;
+        this->timestamp = timestamp;
+    }
+
+    Pyq(int user_id, const std::string& content, const std::string& image_urls, time_t timestamp) {
+        this->user_id = user_id;
+        this->content = content;
+        this->image_urls = image_urls;
+        this->timestamp = timestamp;
+    }
+
+    static Pyq fromJson(const json& j) {
+        Pyq pyq;
+        pyq.id = j["id"].get<int>();
+        pyq.user_id = j["user_id"].get<int>();
+        pyq.content = j["content"].get<std::string>();
+        pyq.image_urls = j["image_urls"].get<std::string>();
+        pyq.timestamp = j["timestamp"].get<time_t>();
+        return pyq;
+    }
+
+    json toJson() {
+        json j;
+        j["id"] = id;
+        j["user_id"] = user_id;
+        j["content"] = content;
+        j["image_urls"] = image_urls;
+        j["timestamp"] = timestamp;
+        return j;
+    }
+};
+
+REFLECTION_WITH_NAME(Pyq, "t_pyq", id, user_id, content, image_urls, timestamp)
+
+struct PyqComment {
+    int id = 0;
+    int pyq_id = 0;
+    // 1: 普通 2: 回复
+    int type = 1;
+    int user_id = 0;
+    int reply_user_id = 0;
+    std::string content;
+    time_t timestamp = 0;
+
+    PyqComment() = default;
+
+    PyqComment(int id, int pyq_id, int type, int user_id, int reply_user_id, const std::string& content,
+               time_t timestamp) {
+        this->id = id;
+        this->pyq_id = pyq_id;
+        this->type = type;
+        this->user_id = user_id;
+        this->reply_user_id = reply_user_id;
+        this->content = content;
+        this->timestamp = timestamp;
+    }
+
+    PyqComment(int pyq_id, int type, int user_id, int reply_user_id, const std::string& content, time_t timestamp) {
+        this->pyq_id = pyq_id;
+        this->type = type;
+        this->user_id = user_id;
+        this->reply_user_id = reply_user_id;
+        this->content = content;
+        this->timestamp = timestamp;
+    }
+
+    static PyqComment fromJson(const json& j) {
+        PyqComment comment;
+        comment.id = j["id"].get<int>();
+        comment.pyq_id = j["pyq_id"].get<int>();
+        comment.type = j["type"].get<int>();
+        comment.user_id = j["user_id"].get<int>();
+        comment.reply_user_id = j["reply_user_id"].get<int>();
+        comment.content = j["content"].get<std::string>();
+        comment.timestamp = j["timestamp"].get<time_t>();
+        return comment;
+    }
+
+    json toJson() {
+        json j;
+        j["id"] = id;
+        j["pyq_id"] = pyq_id;
+        j["type"] = type;
+        j["user_id"] = user_id;
+        j["reply_user_id"] = reply_user_id;
+        j["content"] = content;
+        j["timestamp"] = timestamp;
+        return j;
+    }
+};
+
+REFLECTION_WITH_NAME(PyqComment, "t_pyq_comment", id, pyq_id, type, user_id, reply_user_id, content, timestamp)
+
 #endif

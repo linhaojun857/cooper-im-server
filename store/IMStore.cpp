@@ -134,3 +134,7 @@ void IMStore::registerUserController(UserController* userController) {
 void IMStore::registerAVCallController(AVCallController* avCallController) {
     avCallController_ = avCallController;
 }
+
+void IMStore::registerPyqController(PyqController* pyqController) {
+    pyqController_ = pyqController;
+}

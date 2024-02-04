@@ -12,6 +12,7 @@
 #include "controller/GroupController.hpp"
 #include "controller/LiveController.hpp"
 #include "controller/MsgController.hpp"
+#include "controller/PyqController.hpp"
 #include "controller/UserController.hpp"
 #include "entity/Entity.hpp"
 
@@ -70,6 +71,8 @@ public:
 
     void registerAVCallController(AVCallController* avCallController);
 
+    void registerPyqController(PyqController* pyqController);
+
 private:
     std::shared_ptr<Redis> redisConn_;
     std::unordered_map<int, TcpConnectionPtr> businessTcpConnections_;
@@ -83,6 +86,7 @@ private:
     MsgController* msgController_ = nullptr;
     UserController* userController_ = nullptr;
     AVCallController* avCallController_ = nullptr;
+    PyqController* pyqController_ = nullptr;
 };
 
 #endif

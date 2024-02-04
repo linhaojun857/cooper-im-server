@@ -61,7 +61,6 @@ void FriendController::getFriendsByIds(cooper::HttpRequest& request, cooper::Htt
     for (auto& f : friends) {
         j["friends"].push_back(f.toJson());
     }
-    LOG_DEBUG << "FriendController::getFriendsByIds: " << j.dump();
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取好友列表成功")
 }
 

@@ -15,6 +15,7 @@
 #include "controller/GroupController.hpp"
 #include "controller/LiveController.hpp"
 #include "controller/MsgController.hpp"
+#include "controller/PyqController.hpp"
 #include "controller/UserController.hpp"
 #include "define/IMDefine.hpp"
 #include "entity/Entity.hpp"
@@ -72,7 +73,9 @@ int main() {
             !sqlConn->create_datatable<GroupApply>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<GroupMessage>(ormpp_auto_key{"id"}) ||
             !sqlConn->create_datatable<File>(ormpp_auto_key{"id"}) ||
-            !sqlConn->create_datatable<LiveRoom>(ormpp_auto_key{"id"})) {
+            !sqlConn->create_datatable<LiveRoom>(ormpp_auto_key{"id"}) ||
+            !sqlConn->create_datatable<Pyq>(ormpp_auto_key{"id"}) ||
+            !sqlConn->create_datatable<PyqComment>(ormpp_auto_key{"id"})) {
             LOG_ERROR << "create table failed";
             return -1;
         }
@@ -95,6 +98,7 @@ int main() {
     FileController fileController(sqlConnPool, redisConn);
     LiveController liveController(sqlConnPool, redisConn);
     AVCallController avCallController(sqlConnPool, redisConn);
+    PyqController pyqController(sqlConnPool, redisConn);
 
     std::thread businessTcpServerThread([&]() {
         AppTcpServer businessTcpServer(8888, false);
@@ -168,6 +172,8 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/live/enterLive", liveController, enterLive)
         ADD_HTTP_ENDPOINT("POST", "/live/leaveLive", liveController, leaveLive)
         ADD_HTTP_ENDPOINT("POST", "/live/getOpenedLiveInfoByRoomId", liveController, getOpenedLiveInfoByRoomId)
+        ADD_HTTP_ENDPOINT("POST", "/pyq/postPyq", pyqController, postPyq)
+        ADD_HTTP_ENDPOINT("POST", "/pyq/getPyq", pyqController, getPyq)
         httpServer.start();
     });
 
