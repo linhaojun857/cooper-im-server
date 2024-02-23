@@ -23,22 +23,22 @@
 
 #define ADD_HTTP_MOUNTPOINT(mountPoint, dir) \
     Headers headers;                         \
-    httpServer.addMountPoint(mountPoint, dir, headers);
+    httpServer->addMountPoint(mountPoint, dir, headers);
 
-#define ADD_HTTP_ENDPOINT(httpMethod, path, controller, method)                                  \
-    httpServer.addEndpoint(httpMethod, path, [objectPtr = &controller](auto&& PH1, auto&& PH2) { \
-        objectPtr->method(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));   \
+#define ADD_HTTP_ENDPOINT(httpMethod, path, controller, method)                                   \
+    httpServer->addEndpoint(httpMethod, path, [objectPtr = &controller](auto&& PH1, auto&& PH2) { \
+        objectPtr->method(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));    \
     });
 
-#define ADD_BUSINESS_TCP_ENDPOINT(type, controller, method)                                             \
-    businessTcpServer.registerBusinessHandler(type, [objectPtr = &controller](auto&& PH1, auto&& PH2) { \
-        objectPtr->method(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));          \
+#define ADD_BUSINESS_TCP_ENDPOINT(type, controller, method)                                              \
+    businessTcpServer->registerBusinessHandler(type, [objectPtr = &controller](auto&& PH1, auto&& PH2) { \
+        objectPtr->method(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2));           \
     });
 
-#define ADD_MEDIA_TCP_ENDPOINT(type, controller, method)                                                      \
-    mediaTcpServer.registerMediaHandler(type, [objectPtr = &controller](auto&& PH1, auto&& PH2, auto&& PH3) { \
-        objectPtr->method(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2),                 \
-                          std::forward<decltype(PH3)>(PH3));                                                  \
+#define ADD_MEDIA_TCP_ENDPOINT(type, controller, method)                                                       \
+    mediaTcpServer->registerMediaHandler(type, [objectPtr = &controller](auto&& PH1, auto&& PH2, auto&& PH3) { \
+        objectPtr->method(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2),                  \
+                          std::forward<decltype(PH3)>(PH3));                                                   \
     });
 
 using namespace cooper;
@@ -101,8 +101,8 @@ int main() {
     PyqController pyqController(sqlConnPool, redisConn);
 
     std::thread businessTcpServerThread([&]() {
-        AppTcpServer businessTcpServer(8888, false);
-        businessTcpServer.setConnectionCallback([&](const TcpConnectionPtr& connPtr) {
+        std::shared_ptr<AppTcpServer> businessTcpServer = std::make_shared<AppTcpServer>(8888, false);
+        businessTcpServer->setConnectionCallback([&](const TcpConnectionPtr& connPtr) {
             if (connPtr->disconnected()) {
                 IMStore::getInstance()->removeBusinessTcpConnectionByConn(connPtr);
             }
@@ -114,18 +114,18 @@ int main() {
         ADD_BUSINESS_TCP_ENDPOINT(PROTOCOL_TYPE_LIVE_ROOM_MSG_SEND, liveController, handleLiveRoomSendMsg)
         ADD_BUSINESS_TCP_ENDPOINT(PROTOCOL_TYPE_VIDEO_CALL_REQUEST, avCallController, handleVideoCallRequest)
         ADD_BUSINESS_TCP_ENDPOINT(PROTOCOL_TYPE_VIDEO_CALL_RESPONSE, avCallController, handleVideoCallResponse)
-        businessTcpServer.start();
+        businessTcpServer->start();
     });
 
     std::thread mediaTcpServerThread([&]() {
-        AppTcpServer mediaTcpServer(12121, false);
-        mediaTcpServer.setMode(MEDIA_MODE);
-        mediaTcpServer.setConnectionCallback([&](const TcpConnectionPtr& connPtr) {
+        std::shared_ptr<AppTcpServer> mediaTcpServer = std::make_shared<AppTcpServer>(12121, false);
+        mediaTcpServer->setMode(MEDIA_MODE);
+        mediaTcpServer->setConnectionCallback([&](const TcpConnectionPtr& connPtr) {
             if (connPtr->disconnected()) {
                 IMStore::getInstance()->removeMediaTcpConnectionByConn(connPtr);
             }
         });
-        mediaTcpServer.setSockOptCallback([](int sockfd) {
+        mediaTcpServer->setSockOptCallback([](int sockfd) {
             int sendBufSize = 8 * 1024 * 1024;
             setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (const char*)&sendBufSize, sizeof(sendBufSize));
             int recvBufSize = 8 * 1024 * 1024;
@@ -134,11 +134,11 @@ int main() {
         ADD_MEDIA_TCP_ENDPOINT(PROTOCOL_TYPE_MEDIA_AUTH_MSG, avCallController, handleMediaAuthMsg)
         ADD_MEDIA_TCP_ENDPOINT(PROTOCOL_TYPE_VIDEO_CALL_AUDIO_FRAME, avCallController, handleVideoCallAudioFrame)
         ADD_MEDIA_TCP_ENDPOINT(PROTOCOL_TYPE_VIDEO_CALL_VIDEO_FRAME, avCallController, handleVideoCallVideoFrame)
-        mediaTcpServer.start();
+        mediaTcpServer->start();
     });
 
     std::thread httpServerThread([&]() {
-        HttpServer httpServer(9999);
+        std::shared_ptr<HttpServer> httpServer = std::make_shared<HttpServer>(9999);
         ADD_HTTP_MOUNTPOINT("/static/", "/home/linhaojun/cpp-code/cooper-im-server/static")
 
         // GET
@@ -174,7 +174,7 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/live/getOpenedLiveInfoByRoomId", liveController, getOpenedLiveInfoByRoomId)
         ADD_HTTP_ENDPOINT("POST", "/pyq/postPyq", pyqController, postPyq)
         ADD_HTTP_ENDPOINT("POST", "/pyq/getPyq", pyqController, getPyq)
-        httpServer.start();
+        httpServer->start();
     });
 
     businessTcpServerThread.join();
