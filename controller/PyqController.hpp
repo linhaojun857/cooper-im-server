@@ -20,6 +20,8 @@ public:
 
     void getPyq(HttpRequest& request, HttpResponse& response);
 
+    void getPyqByPage(HttpRequest& request, HttpResponse& response);
+
 private:
     connection_pool<dbng<mysql>>* sqlConnPool_ = nullptr;
     std::shared_ptr<Redis> redisConn_;

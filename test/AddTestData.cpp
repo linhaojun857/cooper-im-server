@@ -166,15 +166,15 @@ void AddPyqTestData(std::shared_ptr<dbng<mysql>>& sqlConn) {
     for (int i = 1; i <= 20; ++i) {
         Pyq pyq;
         pyq.id = 0;
-        pyq.user_id = i;
+        pyq.user_id = 1;
         pyq.content = "这是朋友圈测试消息" + std::to_string(i);
         std::vector<std::string> imageUrls;
+        imageUrls.emplace_back("http://localhost:9999/static/upload/1/3cf76842b29e43e0831581ec3c309917.jpg");
         imageUrls.emplace_back("http://localhost:9999/static/upload/1/41acb7102a864437a83c57c54e796463.jpg");
         imageUrls.emplace_back("http://localhost:9999/static/upload/1/b51728df438744e394442f5de16aee9b.jpg");
-        imageUrls.emplace_back("http://localhost:9999/static/upload/1/3cf76842b29e43e0831581ec3c309917.jpg");
         json j = imageUrls;
         pyq.image_urls = j.dump();
-        pyq.timestamp = time(nullptr) - i * 100000;
+        pyq.timestamp = time(nullptr) - (20 - i) * 100000;
         sqlConn->insert(pyq);
     }
 }

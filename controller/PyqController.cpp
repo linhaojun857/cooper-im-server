@@ -66,3 +66,39 @@ void PyqController::getPyq(HttpRequest& request, HttpResponse& response) {
     }
     RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取朋友圈成功")
 }
+
+void PyqController::getPyqByPage(cooper::HttpRequest& request, cooper::HttpResponse& response) {
+    LOG_DEBUG << "PyqController::getPyqByPage";
+    auto params = json::parse(request.body_);
+    json j;
+    HTTP_CHECK_PARAMS(params, "token", "current_page", "page_size")
+    std::string token = params["token"].get<std::string>();
+    int userId = JwtUtil::parseToken(token);
+    if (userId == -1) {
+        RETURN_RESPONSE(HTTP_ERROR_CODE, "无效token")
+    }
+    int current_page = params["current_page"].get<int>();
+    int page_size = params["page_size"].get<int>();
+    GET_SQL_CONN_H(sqlConn)
+    std::vector<int> friendIds;
+    auto temps = sqlConn->query<std::tuple<int>>("select b_id from t_friend where a_id =" + std::to_string(userId));
+    friendIds.reserve(temps.size());
+    for (const auto& temp : temps) {
+        friendIds.emplace_back(std::get<0>(temp));
+    }
+    friendIds.emplace_back(userId);
+    std::string sql = "select * from t_pyq where user_id in (";
+    for (int i = 0; i < friendIds.size(); ++i) {
+        sql += std::to_string(friendIds[i]);
+        if (i != friendIds.size() - 1) {
+            sql += ",";
+        }
+    }
+    sql += ") order by timestamp desc limit " + std::to_string((current_page - 1) * page_size) + "," +
+           std::to_string(page_size);
+    auto pyqs = sqlConn->query<Pyq>(sql);
+    for (auto& pyq : pyqs) {
+        j["pyqs"].push_back(pyq.toJson());
+    }
+    RETURN_RESPONSE(HTTP_SUCCESS_CODE, "获取朋友圈成功")
+}

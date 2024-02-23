@@ -174,6 +174,7 @@ int main() {
         ADD_HTTP_ENDPOINT("POST", "/live/getOpenedLiveInfoByRoomId", liveController, getOpenedLiveInfoByRoomId)
         ADD_HTTP_ENDPOINT("POST", "/pyq/postPyq", pyqController, postPyq)
         ADD_HTTP_ENDPOINT("POST", "/pyq/getPyq", pyqController, getPyq)
+        ADD_HTTP_ENDPOINT("POST", "/pyq/getPyqByPage", pyqController, getPyqByPage)
         httpServer->start();
     });
 
